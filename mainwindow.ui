@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>称重对比软件</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="settingsTab">
+       <attribute name="title">
+        <string>系统设置</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_settings">
+        <item>
+         <widget class="QGroupBox" name="connectionGroup">
+          <property name="title">
+           <string>TCP连接设置</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout_connection">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_serverAddress">
+             <property name="text">
+              <string>服务器地址:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="serverAddressEdit">
+             <property name="placeholderText">
+              <string>例如: 192.168.1.100</string>
+             </property>
+             <property name="text">
+              <string>127.0.0.1</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_serverPort">
+             <property name="text">
+              <string>端口:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="serverPortEdit">
+             <property name="placeholderText">
+              <string>例如: 8080</string>
+             </property>
+             <property name="text">
+              <string>8080</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_operation">
+             <property name="text">
+              <string>操作:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_buttons">
+             <item>
+              <widget class="QPushButton" name="connectBtn">
+               <property name="text">
+                <string>连接</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="disconnectBtn">
+               <property name="text">
+                <string>断开</string>
+               </property>
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_buttons">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_status">
+             <property name="text">
+              <string>连接状态:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="connectionStatusLabel">
+             <property name="text">
+              <string>未连接</string>
+             </property>
+             <property name="styleSheet">
+              <string>color: red; font-weight: bold;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_settings">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="bindingTab">
+       <attribute name="title">
+        <string>物品绑定</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_binding">
+        <item>
+         <widget class="QGroupBox" name="inputGroup">
+          <property name="title">
+           <string>添加绑定</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout_binding">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_command">
+             <property name="text">
+              <string>指令:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="commandEdit">
+             <property name="placeholderText">
+              <string>输入接收到的指令</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_itemName">
+             <property name="text">
+              <string>物品名称:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="itemNameEdit">
+             <property name="placeholderText">
+              <string>输入物品名称</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_bindingOperation">
+             <property name="text">
+              <string>操作:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_bindingButtons">
+             <item>
+              <widget class="QPushButton" name="addBindingBtn">
+               <property name="text">
+                <string>添加绑定</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="removeBindingBtn">
+               <property name="text">
+                <string>删除选中</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="clearBindingsBtn">
+               <property name="text">
+                <string>清空所有</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_binding">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="listGroup">
+          <property name="title">
+           <string>绑定列表</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_list">
+           <item>
+            <widget class="QListWidget" name="bindingListWidget"/>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="weightDataTab">
+       <attribute name="title">
+        <string>称重数据</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_weightData">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="leftTopGroup">
+          <property name="title">
+           <string>第一托可视化</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_leftTop">
+           <item row="0" column="0">
+            <widget class="QLabel" name="slot1_5">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="slot1_6">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="slot1_7">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="slot1_8">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="slot1_1">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="slot1_2">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="slot1_3">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="slot1_4">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="rightTopGroup">
+          <property name="title">
+           <string>第一托称重表格</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_rightTop">
+           <item>
+            <widget class="QTableWidget" name="weightTable1">
+             <column>
+              <property name="text">
+               <string>序号</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>车型名称</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量1</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量2</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量3</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量4</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量5</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量6</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量7</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量8</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>时间</string>
+              </property>
+             </column>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_table1">
+             <item>
+              <widget class="QPushButton" name="clearTable1Btn">
+               <property name="text">
+                <string>清空</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="exportTable1Btn">
+               <property name="text">
+                <string>导出</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_table1">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="leftBottomGroup">
+          <property name="title">
+           <string>第二托可视化</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_leftBottom">
+           <item row="0" column="0">
+            <widget class="QLabel" name="slot2_5">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="slot2_6">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="slot2_7">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="slot2_8">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="slot2_1">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="slot2_2">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="slot2_3">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="slot2_4">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QGroupBox" name="rightBottomGroup">
+          <property name="title">
+           <string>第二托称重表格</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_rightBottom">
+           <item>
+            <widget class="QTableWidget" name="weightTable2">
+             <column>
+              <property name="text">
+               <string>序号</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>车型名称</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量1</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量2</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量3</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量4</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量5</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量6</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量7</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量8</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>时间</string>
+              </property>
+             </column>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_table2">
+             <item>
+              <widget class="QPushButton" name="clearTable2Btn">
+               <property name="text">
+                <string>清空</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="exportTable2Btn">
+               <property name="text">
+                <string>导出</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_table2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1000</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
