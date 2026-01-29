@@ -143,7 +143,7 @@
       </widget>
       <widget class="QWidget" name="bindingTab">
        <attribute name="title">
-        <string>物品绑定</string>
+        <string>车型绑定</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_binding">
         <item>
@@ -155,28 +155,28 @@
            <item row="0" column="0">
             <widget class="QLabel" name="label_command">
              <property name="text">
-              <string>指令:</string>
+              <string>车型代码:</string>
              </property>
             </widget>
            </item>
            <item row="0" column="1">
             <widget class="QLineEdit" name="commandEdit">
              <property name="placeholderText">
-              <string>输入接收到的指令</string>
+              <string>输入车型代码</string>
              </property>
             </widget>
            </item>
            <item row="1" column="0">
             <widget class="QLabel" name="label_itemName">
              <property name="text">
-              <string>物品名称:</string>
+              <string>车型名称:</string>
              </property>
             </widget>
            </item>
            <item row="1" column="1">
             <widget class="QLineEdit" name="itemNameEdit">
              <property name="placeholderText">
-              <string>输入物品名称</string>
+              <string>输入车型名称</string>
              </property>
             </widget>
            </item>
@@ -200,13 +200,6 @@
               <widget class="QPushButton" name="removeBindingBtn">
                <property name="text">
                 <string>删除选中</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="clearBindingsBtn">
-               <property name="text">
-                <string>清空所有</string>
                </property>
               </widget>
              </item>
@@ -360,14 +353,21 @@
           </layout>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QGroupBox" name="rightTopGroup">
+        <item row="0" column="1" rowspan="2">
+         <widget class="QGroupBox" name="rightGroup">
           <property name="title">
-           <string>第一托称重表格</string>
+           <string>NG品表格</string>
           </property>
-          <layout class="QVBoxLayout" name="verticalLayout_rightTop">
+          <layout class="QVBoxLayout" name="verticalLayout_right">
            <item>
-            <widget class="QTableWidget" name="weightTable1">
+            <widget class="QPushButton" name="productionSupplementBtn">
+             <property name="text">
+              <string>生产补充</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTableWidget" name="ngTable">
              <column>
               <property name="text">
                <string>序号</string>
@@ -385,42 +385,7 @@
              </column>
              <column>
               <property name="text">
-               <string>重量1</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量2</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量3</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量4</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量5</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量6</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量7</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量8</string>
+               <string>重量</string>
               </property>
              </column>
              <column>
@@ -435,37 +400,6 @@
               <set>QAbstractItemView::NoEditTriggers</set>
              </property>
             </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_table1">
-             <item>
-              <widget class="QPushButton" name="clearTable1Btn">
-               <property name="text">
-                <string>清空</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="exportTable1Btn">
-               <property name="text">
-                <string>导出</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_table1">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
            </item>
           </layout>
          </widget>
@@ -583,12 +517,129 @@
           </layout>
          </widget>
         </item>
-        <item row="1" column="1">
-         <widget class="QGroupBox" name="rightBottomGroup">
+       </layout>
+      </widget>
+      <widget class="QWidget" name="historyTab">
+       <attribute name="title">
+        <string>历史记录</string>
+       </attribute>
+       <layout class="QHBoxLayout" name="horizontalLayout_history">
+        <item>
+         <widget class="QGroupBox" name="historyLeftGroup">
+          <property name="title">
+           <string>第一托称重表格</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_historyLeft">
+           <item>
+            <widget class="QTableWidget" name="weightTable1">
+             <column>
+              <property name="text">
+               <string>序号</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>车型名称</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量1</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量2</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量3</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量4</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量5</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量6</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量7</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>重量8</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>时间</string>
+              </property>
+             </column>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_table1">
+             <item>
+              <widget class="QPushButton" name="clearTable1Btn">
+               <property name="text">
+                <string>清空</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="exportTable1Btn">
+               <property name="text">
+                <string>导出</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_table1">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="historyRightGroup">
           <property name="title">
            <string>第二托称重表格</string>
           </property>
-          <layout class="QVBoxLayout" name="verticalLayout_rightBottom">
+          <layout class="QVBoxLayout" name="verticalLayout_historyRight">
            <item>
             <widget class="QTableWidget" name="weightTable2">
              <column>

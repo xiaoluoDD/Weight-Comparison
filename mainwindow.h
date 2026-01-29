@@ -42,10 +42,9 @@ private slots:
     // 数据接收处理
     void onDataReceived(const QByteArray &data);
     
-    // 物品绑定相关
+    // 车型绑定相关
     void onAddBindingClicked();
     void onRemoveBindingClicked();
-    void onClearBindingsClicked();
     
     // 称重数据相关
     void onClearTable1Clicked();
@@ -60,13 +59,14 @@ private:
     TcpClient *m_tcpClient;
     
     // 数据存储
-    QMap<QString, QString> m_bindingMap;  // 指令 -> 物品名称的映射
+    QMap<QString, QString> m_bindingMap;  // 车型代码 -> 车型名称的映射
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
     
     // 初始化函数
     void initializeUI();
     void setupConnections();
+    void setupHistoryTableColumns(QTableWidget *table);
     void updateConnectionStatus(bool connected);
     void parseReceivedData(const QByteArray &data);
     void addWeightData(const WeightData &data, int tableIndex = 1);

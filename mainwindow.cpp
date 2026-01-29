@@ -33,9 +33,12 @@ MainWindow::~MainWindow()
 
 void MainWindow::initializeUI()
 {
-    // 设置表格列标题和属性
-    ui->weightTable1->horizontalHeader()->setStretchLastSection(true);
-    ui->weightTable2->horizontalHeader()->setStretchLastSection(true);
+    // 设置NG品表格列标题和属性
+    ui->ngTable->horizontalHeader()->setStretchLastSection(true);
+    
+    // 设置历史记录表格列宽（不拉伸最后一列，设置固定列宽以便一次性显示所有列）
+    setupHistoryTableColumns(ui->weightTable1);
+    setupHistoryTableColumns(ui->weightTable2);
     
     // 设置称重数据标签页的布局拉伸比例
     // 列拉伸：左列(0)为1，右列(1)为2（左边窄，右边宽）
@@ -44,6 +47,10 @@ void MainWindow::initializeUI()
     // 行拉伸：上下两行各为1
     ui->gridLayout_weightData->setRowStretch(0, 1);
     ui->gridLayout_weightData->setRowStretch(1, 1);
+    
+    // 设置历史记录标签页的布局拉伸比例（左右各为1）
+    ui->horizontalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
+    ui->horizontalLayout_history->setStretchFactor(ui->historyRightGroup, 1);
     
     // 设置左侧可视化区域的布局拉伸比例
     // 第一托可视化：2列各为1，4行各为1
@@ -63,6 +70,26 @@ void MainWindow::initializeUI()
     ui->gridLayout_leftBottom->setRowStretch(3, 1);
 }
 
+void MainWindow::setupHistoryTableColumns(QTableWidget *table)
+{
+    // 关闭最后一列的自动拉伸
+    table->horizontalHeader()->setStretchLastSection(false);
+    
+    // 设置各列的固定宽度，确保所有列能在可视区域内显示
+    // 序号列
+    table->setColumnWidth(0, 50);
+    // 车型名称列
+    table->setColumnWidth(1, 100);
+    // 条码列
+    table->setColumnWidth(2, 100);
+    // 重量1-8列（8列）
+    for (int i = 3; i < 11; ++i) {
+        table->setColumnWidth(i, 65);  // 每列65像素
+    }
+    // 时间列
+    table->setColumnWidth(11, 130);
+}
+
 void MainWindow::setupConnections()
 {
     // TCP连接相关
@@ -73,10 +100,9 @@ void MainWindow::setupConnections()
     connect(m_tcpClient, &TcpClient::errorOccurred, this, &MainWindow::onErrorOccurred);
     connect(m_tcpClient, &TcpClient::dataReceived, this, &MainWindow::onDataReceived);
     
-    // 物品绑定相关
+    // 车型绑定相关
     connect(ui->addBindingBtn, &QPushButton::clicked, this, &MainWindow::onAddBindingClicked);
     connect(ui->removeBindingBtn, &QPushButton::clicked, this, &MainWindow::onRemoveBindingClicked);
-    connect(ui->clearBindingsBtn, &QPushButton::clicked, this, &MainWindow::onClearBindingsClicked);
     
     // 称重数据表格相关
     connect(ui->clearTable1Btn, &QPushButton::clicked, this, &MainWindow::onClearTable1Clicked);
@@ -219,7 +245,7 @@ void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> 
 
 QString MainWindow::getItemNameByCommand(const QString &command)
 {
-    // 根据指令查找绑定的物品名称
+    // 根据车型代码查找绑定的车型名称
     if (m_bindingMap.contains(command)) {
         return m_bindingMap[command];
     }
@@ -233,13 +259,13 @@ void MainWindow::onAddBindingClicked()
     QString itemName = ui->itemNameEdit->text().trimmed();
     
     if (command.isEmpty() || itemName.isEmpty()) {
-        QMessageBox::warning(this, "警告", "请输入指令和物品名称！");
+        QMessageBox::warning(this, "警告", "请输入车型代码和车型名称！");
         return;
     }
     
     if (m_bindingMap.contains(command)) {
         int ret = QMessageBox::question(this, "确认", 
-                                        QString("指令 '%1' 已存在，是否覆盖？").arg(command),
+                                        QString("车型代码 '%1' 已存在，是否覆盖？").arg(command),
                                         QMessageBox::Yes | QMessageBox::No);
         if (ret == QMessageBox::No) {
             return;
@@ -279,17 +305,6 @@ void MainWindow::onRemoveBindingClicked()
         m_bindingMap.remove(command);
         delete item;
         ui->statusbar->showMessage("已删除绑定", 2000);
-    }
-}
-
-void MainWindow::onClearBindingsClicked()
-{
-    int ret = QMessageBox::question(this, "确认", "确定要清空所有绑定吗？",
-                                     QMessageBox::Yes | QMessageBox::No);
-    if (ret == QMessageBox::Yes) {
-        m_bindingMap.clear();
-        ui->bindingListWidget->clear();
-        ui->statusbar->showMessage("已清空所有绑定", 2000);
     }
 }
 
