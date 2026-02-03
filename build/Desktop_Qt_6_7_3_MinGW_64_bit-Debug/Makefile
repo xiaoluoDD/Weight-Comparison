@@ -226,6 +226,7 @@ Makefile: ../../WeightComparison.pro D:/qt6/6.7.3/mingw_64/mkspecs/win32-g++/qma
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/qt_config.prf \
 		D:/qt6/6.7.3/mingw_64/mkspecs/win32-g++/qmake.conf \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/exclusive_builds.prf \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/toolchain.prf \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/default_pre.prf \
@@ -256,7 +257,6 @@ Makefile: ../../WeightComparison.pro D:/qt6/6.7.3/mingw_64/mkspecs/win32-g++/qma
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Network.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Core.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6EntryPoint.prl \
-		.qmake.stash \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/build_pass.prf
 	$(QMAKE) -o Makefile ..\..\WeightComparison.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"
 D:/qt6/6.7.3/mingw_64/mkspecs/features/spec_pre.prf:
@@ -415,6 +415,7 @@ D:/qt6/6.7.3/mingw_64/mkspecs/features/qt_functions.prf:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/qt_config.prf:
 D:/qt6/6.7.3/mingw_64/mkspecs/win32-g++/qmake.conf:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/spec_post.prf:
+.qmake.stash:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/exclusive_builds.prf:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/toolchain.prf:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/default_pre.prf:
@@ -445,7 +446,6 @@ D:/qt6/6.7.3/mingw_64/lib/Qt6Gui.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Network.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Core.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6EntryPoint.prl:
-.qmake.stash:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/build_pass.prf:
 qmake: FORCE
 	@$(QMAKE) -o Makefile ..\..\WeightComparison.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"

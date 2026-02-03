@@ -523,7 +523,7 @@
        <attribute name="title">
         <string>历史记录</string>
        </attribute>
-       <layout class="QHBoxLayout" name="horizontalLayout_history">
+       <layout class="QVBoxLayout" name="verticalLayout_history">
         <item>
          <widget class="QGroupBox" name="historyLeftGroup">
           <property name="title">
@@ -544,12 +544,12 @@
              </column>
              <column>
               <property name="text">
-               <string>条码</string>
+               <string>重量1</string>
               </property>
              </column>
              <column>
               <property name="text">
-               <string>重量1</string>
+               <string>条码1</string>
               </property>
              </column>
              <column>
@@ -559,7 +559,17 @@
              </column>
              <column>
               <property name="text">
+               <string>条码2</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量3</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码3</string>
               </property>
              </column>
              <column>
@@ -569,7 +579,17 @@
              </column>
              <column>
               <property name="text">
+               <string>条码4</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量5</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码5</string>
               </property>
              </column>
              <column>
@@ -579,12 +599,27 @@
              </column>
              <column>
               <property name="text">
+               <string>条码6</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量7</string>
               </property>
              </column>
              <column>
               <property name="text">
+               <string>条码7</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量8</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码8</string>
               </property>
              </column>
              <column>
@@ -654,12 +689,12 @@
              </column>
              <column>
               <property name="text">
-               <string>条码</string>
+               <string>重量1</string>
               </property>
              </column>
              <column>
               <property name="text">
-               <string>重量1</string>
+               <string>条码1</string>
               </property>
              </column>
              <column>
@@ -669,7 +704,17 @@
              </column>
              <column>
               <property name="text">
+               <string>条码2</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量3</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码3</string>
               </property>
              </column>
              <column>
@@ -679,7 +724,17 @@
              </column>
              <column>
               <property name="text">
+               <string>条码4</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量5</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码5</string>
               </property>
              </column>
              <column>
@@ -689,12 +744,27 @@
              </column>
              <column>
               <property name="text">
+               <string>条码6</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量7</string>
               </property>
              </column>
              <column>
               <property name="text">
+               <string>条码7</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
                <string>重量8</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>条码8</string>
               </property>
              </column>
              <column>

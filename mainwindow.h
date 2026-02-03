@@ -18,6 +18,7 @@
 #include <QMap>
 #include "tcpclient.h"
 #include "weightdata.h"
+#include "plcprotocol.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -62,6 +63,7 @@ private:
     QMap<QString, QString> m_bindingMap;  // 车型代码 -> 车型名称的映射
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
+    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 428 字节再解析
     
     // 初始化函数
     void initializeUI();
@@ -72,6 +74,8 @@ private:
     void addWeightData(const WeightData &data, int tableIndex = 1);
     void updateWeightTable(QTableWidget *table, const QList<WeightData> &dataList);
     QString getItemNameByCommand(const QString &command);
+    QString vehicleTypeToString(int vehicleType);  // 1=12V机型 2=16V机型
+    WeightData firstCarDataToWeightData(const PlcProtocol::FirstCarData &car);
 };
 
 #endif // MAINWINDOW_H

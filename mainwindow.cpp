@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "logger.h"
+#include "database.h"
 #include <QMessageBox>
 #include <QHeaderView>
 #include <QFileDialog>
@@ -21,7 +23,17 @@ MainWindow::MainWindow(QWidget *parent)
     initializeUI();
     
     setupConnections();
-    
+
+    // 初始化数据库并加载历史记录
+    if (DatabaseManager::instance().init()) {
+        m_weightDataList1 = DatabaseManager::instance().loadWeightRecords(1);
+        m_weightDataList2 = DatabaseManager::instance().loadWeightRecords(2);
+        updateWeightTable(ui->weightTable1, m_weightDataList1);
+        updateWeightTable(ui->weightTable2, m_weightDataList2);
+        Logger::info(QString("已从数据库加载历史记录: 表格1 %1 条, 表格2 %2 条")
+                     .arg(m_weightDataList1.size()).arg(m_weightDataList2.size()));
+    }
+
     // 初始化状态
     updateConnectionStatus(false);
 }
@@ -48,9 +60,9 @@ void MainWindow::initializeUI()
     ui->gridLayout_weightData->setRowStretch(0, 1);
     ui->gridLayout_weightData->setRowStretch(1, 1);
     
-    // 设置历史记录标签页的布局拉伸比例（左右各为1）
-    ui->horizontalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
-    ui->horizontalLayout_history->setStretchFactor(ui->historyRightGroup, 1);
+    // 设置历史记录标签页的布局拉伸比例（上下两表各为1）
+    ui->verticalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
+    ui->verticalLayout_history->setStretchFactor(ui->historyRightGroup, 1);
     
     // 设置左侧可视化区域的布局拉伸比例
     // 第一托可视化：2列各为1，4行各为1
@@ -75,19 +87,14 @@ void MainWindow::setupHistoryTableColumns(QTableWidget *table)
     // 关闭最后一列的自动拉伸
     table->horizontalHeader()->setStretchLastSection(false);
     
-    // 设置各列的固定宽度，确保所有列能在可视区域内显示
-    // 序号列
-    table->setColumnWidth(0, 50);
-    // 车型名称列
-    table->setColumnWidth(1, 100);
-    // 条码列
-    table->setColumnWidth(2, 100);
-    // 重量1-8列（8列）
-    for (int i = 3; i < 11; ++i) {
-        table->setColumnWidth(i, 65);  // 每列65像素
+    // 列顺序：序号、车型名称、重量1、条码1、…、重量8、条码8、时间（共19列）
+    table->setColumnWidth(0, 45);   // 序号
+    table->setColumnWidth(1, 75);   // 车型名称
+    for (int i = 0; i < 8; ++i) {
+        table->setColumnWidth(2 + i * 2, 55);     // 重量1-8
+        table->setColumnWidth(3 + i * 2, 75);     // 条码1-8
     }
-    // 时间列
-    table->setColumnWidth(11, 130);
+    table->setColumnWidth(18, 130); // 时间
 }
 
 void MainWindow::setupConnections()
@@ -123,6 +130,7 @@ void MainWindow::onConnectClicked()
     
     m_tcpClient->connectToServer(address, port);
     ui->statusbar->showMessage(QString("正在连接到 %1:%2...").arg(address).arg(port));
+    Logger::info(QString("正在连接 %1:%2").arg(address).arg(port));
 }
 
 void MainWindow::onDisconnectClicked()
@@ -134,18 +142,21 @@ void MainWindow::onConnected()
 {
     updateConnectionStatus(true);
     ui->statusbar->showMessage("已连接到服务器", 3000);
+    Logger::info("已连接到服务器");
 }
 
 void MainWindow::onDisconnected()
 {
     updateConnectionStatus(false);
     ui->statusbar->showMessage("已断开连接", 3000);
+    Logger::info("已断开连接");
 }
 
 void MainWindow::onErrorOccurred(const QString &error)
 {
     updateConnectionStatus(false);
     ui->statusbar->showMessage(QString("错误: %1").arg(error), 5000);
+    Logger::error(QString("连接错误: %1").arg(error));
     QMessageBox::critical(this, "连接错误", error);
 }
 
@@ -173,42 +184,44 @@ void MainWindow::updateConnectionStatus(bool connected)
 
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
-    // TODO: 根据实际协议解析数据
-    // 这里先提供一个简单的示例框架
-    QString dataStr = QString::fromUtf8(data).trimmed();
-    
-    // 示例：假设数据格式为 "指令,重量值,单位,状态"
-    // 或者根据指令查找绑定的物品名称
-    QStringList parts = dataStr.split(',');
-    
-    WeightData weightData;
-    weightData.setTimestamp(QDateTime::currentDateTime());
-    
-    if (parts.size() >= 2) {
-        // 假设第一部分是指令
-        QString command = parts[0].trimmed();
-        QString itemName = getItemNameByCommand(command);
-        
-        weightData.setItemName(itemName);
-        weightData.setValue(parts[1].toDouble());
-        weightData.setUnit(parts.size() > 2 ? parts[2].trimmed() : "kg");
-        weightData.setStatus(parts.size() > 3 ? parts[3].trimmed() : "正常");
-        
-        // 这里可以根据指令或其他逻辑决定添加到哪个表格
-        // 暂时默认添加到表格1
-        addWeightData(weightData, 1);
-    } else {
-        // 简化处理：直接解析为重量值
-        weightData.setValue(dataStr.toDouble());
-        weightData.setUnit("kg");
-        weightData.setStatus("正常");
-        weightData.setItemName("");
-        addWeightData(weightData, 1);
+    m_receiveBuffer.append(data);
+
+    while (m_receiveBuffer.size() >= PlcProtocol::FullPacketSize) {
+        QByteArray packet = m_receiveBuffer.left(PlcProtocol::FullPacketSize);
+        m_receiveBuffer.remove(0, PlcProtocol::FullPacketSize);
+
+        PlcProtocol::TwoCarPacket twoCar;
+        if (!PlcProtocol::parseTwoCarPacket(packet, twoCar))
+            continue;
+
+        WeightData w1 = firstCarDataToWeightData(twoCar.car1);
+        WeightData w2 = firstCarDataToWeightData(twoCar.car2);
+        addWeightData(w1, 1);
+        addWeightData(w2, 2);
+        Logger::info("解析到一帧2车数据并已写入历史记录");
     }
+}
+
+QString MainWindow::vehicleTypeToString(int vehicleType)
+{
+    if (vehicleType == PlcProtocol::Model12V) return QStringLiteral("12V机型");
+    if (vehicleType == PlcProtocol::Model16V) return QStringLiteral("16V机型");
+    return QString();
+}
+
+WeightData MainWindow::firstCarDataToWeightData(const PlcProtocol::FirstCarData &car)
+{
+    WeightData w;
+    w.setTimestamp(QDateTime::currentDateTime());
+    w.setVehicleModel(vehicleTypeToString(car.vehicleType));
+    w.setWeights(car.weights);
+    w.setBarcodes(car.barcodes);
+    return w;
 }
 
 void MainWindow::addWeightData(const WeightData &data, int tableIndex)
 {
+    DatabaseManager::instance().insertWeightRecord(data, tableIndex);
     if (tableIndex == 1) {
         m_weightDataList1.append(data);
         updateWeightTable(ui->weightTable1, m_weightDataList1);
@@ -221,24 +234,22 @@ void MainWindow::addWeightData(const WeightData &data, int tableIndex)
 void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> &dataList)
 {
     table->setRowCount(dataList.size());
-    
+    QList<QString> barcodes;
+
     for (int i = 0; i < dataList.size(); ++i) {
         const WeightData &data = dataList[i];
         QList<double> weights = data.weights();
-        
+        barcodes = data.barcodes();
+
         int col = 0;
-        // 序号
         table->setItem(i, col++, new QTableWidgetItem(QString::number(i + 1)));
-        // 车型名称
         table->setItem(i, col++, new QTableWidgetItem(data.vehicleModel()));
-        // 条码
-        table->setItem(i, col++, new QTableWidgetItem(data.barcode()));
-        // 8个重量列（重量1-8）
         for (int j = 0; j < 8; ++j) {
             double weight = (j < weights.size()) ? weights[j] : 0.0;
+            QString barcode = (j < barcodes.size()) ? barcodes[j] : QString();
             table->setItem(i, col++, new QTableWidgetItem(QString::number(weight, 'f', 3)));
+            table->setItem(i, col++, new QTableWidgetItem(barcode));
         }
-        // 时间
         table->setItem(i, col++, new QTableWidgetItem(data.timestamp().toString("yyyy-MM-dd hh:mm:ss")));
     }
 }
@@ -314,6 +325,7 @@ void MainWindow::onClearTable1Clicked()
     int ret = QMessageBox::question(this, "确认", "确定要清空表格1的所有数据吗？",
                                      QMessageBox::Yes | QMessageBox::No);
     if (ret == QMessageBox::Yes) {
+        DatabaseManager::instance().clearTableRecords(1);
         m_weightDataList1.clear();
         updateWeightTable(ui->weightTable1, m_weightDataList1);
         ui->statusbar->showMessage("表格1数据已清空", 2000);
@@ -325,6 +337,7 @@ void MainWindow::onClearTable2Clicked()
     int ret = QMessageBox::question(this, "确认", "确定要清空表格2的所有数据吗？",
                                      QMessageBox::Yes | QMessageBox::No);
     if (ret == QMessageBox::Yes) {
+        DatabaseManager::instance().clearTableRecords(2);
         m_weightDataList2.clear();
         updateWeightTable(ui->weightTable2, m_weightDataList2);
         ui->statusbar->showMessage("表格2数据已清空", 2000);

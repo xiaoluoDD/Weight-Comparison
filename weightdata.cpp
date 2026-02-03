@@ -9,6 +9,7 @@ WeightData::WeightData()
     m_itemName = "";
     m_vehicleModel = "";
     m_barcode = "";
+    m_barcodes = QList<QString>(8, QString());
     m_weights = QList<double>(8, 0.0);  // 初始化8个重量值为0
 }
 
@@ -20,6 +21,7 @@ WeightData::WeightData(const QDateTime &timestamp, double value, const QString &
     , m_itemName("")
     , m_vehicleModel("")
     , m_barcode("")
+    , m_barcodes(QList<QString>(8, QString()))
     , m_weights(QList<double>(8, 0.0))
 {
 }
@@ -81,7 +83,12 @@ QString WeightData::vehicleModel() const
 
 QString WeightData::barcode() const
 {
-    return m_barcode;
+    return m_barcodes.isEmpty() ? m_barcode : m_barcodes.first();
+}
+
+QList<QString> WeightData::barcodes() const
+{
+    return m_barcodes;
 }
 
 QList<double> WeightData::weights() const
@@ -97,6 +104,13 @@ void WeightData::setVehicleModel(const QString &vehicleModel)
 void WeightData::setBarcode(const QString &barcode)
 {
     m_barcode = barcode;
+}
+
+void WeightData::setBarcodes(const QList<QString> &barcodes)
+{
+    m_barcodes = barcodes;
+    while (m_barcodes.size() < 8) m_barcodes.append(QString());
+    if (m_barcodes.size() > 8) m_barcodes = m_barcodes.mid(0, 8);
 }
 
 void WeightData::setWeights(const QList<double> &weights)

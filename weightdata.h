@@ -18,7 +18,8 @@ public:
     QString status() const;
     QString itemName() const;
     QString vehicleModel() const;  // 车型名称
-    QString barcode() const;        // 条码
+    QString barcode() const;        // 条码（兼容，取 barcodes[0]）
+    QList<QString> barcodes() const; // 8个条码列表
     QList<double> weights() const; // 8个重量值列表
     
     // Setter方法
@@ -29,6 +30,7 @@ public:
     void setItemName(const QString &itemName);
     void setVehicleModel(const QString &vehicleModel);
     void setBarcode(const QString &barcode);
+    void setBarcodes(const QList<QString> &barcodes);
     void setWeights(const QList<double> &weights);
     void setWeight(int slotIndex, double weight);  // 设置指定槽位的重量（1-8）
     
@@ -46,8 +48,9 @@ private:
     QString m_status;       // 状态（正常、异常等）
     QString m_itemName;     // 物品名称
     QString m_vehicleModel; // 车型名称
-    QString m_barcode;      // 条码
-    QList<double> m_weights; // 8个槽位的重量值列表
+    QString m_barcode;       // 条码（兼容）
+    QList<QString> m_barcodes; // 8个条码列表
+    QList<double> m_weights;  // 8个槽位的重量值列表
 };
 
 #endif // WEIGHTDATA_H

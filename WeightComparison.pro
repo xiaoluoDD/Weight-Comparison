@@ -1,4 +1,4 @@
-QT += core widgets network
+QT += core widgets network sql
 
 CONFIG += c++17
 
@@ -9,12 +9,18 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     tcpclient.cpp \
-    weightdata.cpp
+    weightdata.cpp \
+    plcprotocol.cpp \
+    logger.cpp \
+    database.cpp
 
 HEADERS += \
     mainwindow.h \
     tcpclient.h \
-    weightdata.h
+    weightdata.h \
+    plcprotocol.h \
+    logger.h \
+    database.h
 
 FORMS += \
     mainwindow.ui
