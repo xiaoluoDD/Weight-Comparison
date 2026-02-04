@@ -8,6 +8,8 @@ TEMPLATE = app
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    ngusedialog.cpp \
+    slotdialog.cpp \
     tcpclient.cpp \
     weightdata.cpp \
     plcprotocol.cpp \
@@ -16,6 +18,8 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h \
+    ngusedialog.h \
+    slotdialog.h \
     tcpclient.h \
     weightdata.h \
     plcprotocol.h \

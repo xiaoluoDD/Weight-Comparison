@@ -360,17 +360,57 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_right">
            <item>
-            <widget class="QPushButton" name="productionSupplementBtn">
-             <property name="text">
-              <string>生产补充</string>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="horizontalLayout_ngButtons">
+             <item>
+              <widget class="QPushButton" name="productionSupplementBtn">
+               <property name="text">
+                <string>生产补充</string>
+               </property>
+               <property name="maximumWidth">
+                <number>90</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="ngDeleteBtn">
+               <property name="text">
+                <string>删除</string>
+               </property>
+               <property name="maximumWidth">
+                <number>70</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="ngUseBtn">
+               <property name="text">
+                <string>备用调入</string>
+               </property>
+               <property name="maximumWidth">
+                <number>90</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_ng">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QTableWidget" name="ngTable">
              <column>
               <property name="text">
-               <string>序号</string>
+               <string>id</string>
               </property>
              </column>
              <column>
@@ -385,7 +425,7 @@
              </column>
              <column>
               <property name="text">
-               <string>重量</string>
+               <string>重量(g)</string>
               </property>
              </column>
              <column>
@@ -534,11 +574,6 @@
             <widget class="QTableWidget" name="weightTable1">
              <column>
               <property name="text">
-               <string>序号</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
                <string>车型名称</string>
               </property>
              </column>
@@ -677,11 +712,6 @@
           <layout class="QVBoxLayout" name="verticalLayout_historyRight">
            <item>
             <widget class="QTableWidget" name="weightTable2">
-             <column>
-              <property name="text">
-               <string>序号</string>
-              </property>
-             </column>
              <column>
               <property name="text">
                <string>车型名称</string>

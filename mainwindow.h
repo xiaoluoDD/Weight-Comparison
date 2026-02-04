@@ -16,6 +16,7 @@
 #include <QTextEdit>
 #include <QSplitter>
 #include <QMap>
+#include <QPair>
 #include "tcpclient.h"
 #include "weightdata.h"
 #include "plcprotocol.h"
@@ -53,6 +54,16 @@ private slots:
     void onExportTable1Clicked();
     void onExportTable2Clicked();
 
+    // 槽位双击
+    void onSlotDoubleClicked(int carIndex, int slotIndex);
+
+    // NG品表格操作
+    void onNgDeleteClicked();
+    void onNgUseClicked();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     Ui::MainWindow *ui;
     
@@ -64,6 +75,9 @@ private:
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
     QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 428 字节再解析
+    PlcProtocol::FirstCarData m_car1Data; // 第一托当前数据（用于双击弹窗）
+    PlcProtocol::FirstCarData m_car2Data; // 第二托当前数据（用于双击弹窗）
+    QMap<QLabel *, QPair<int, int>> m_slotMap;  // QLabel* -> (carIndex, slotIndex)
     
     // 初始化函数
     void initializeUI();
@@ -75,7 +89,13 @@ private:
     void updateWeightTable(QTableWidget *table, const QList<WeightData> &dataList);
     QString getItemNameByCommand(const QString &command);
     QString vehicleTypeToString(int vehicleType);  // 1=12V机型 2=16V机型
+    int vehicleModelToType(const QString &model);  // 车型名称转车型代码
     WeightData firstCarDataToWeightData(const PlcProtocol::FirstCarData &car);
+    void updateCarVisualization(int carIndex, const PlcProtocol::FirstCarData &car);  // 正常生产时更新可视化槽位
+    void applySlotDeviationStyle(int carIndex, const QList<double> &weights);  // 根据偏差设置槽位字体颜色
+    QString formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const;  // 车型/重量/条码换行显示
+    void setupSlotDoubleClick();  // 为可视化槽位安装双击事件过滤
+    void addNgRecord(const QString &vehicleModel, const QString &barcode, double weight);  // 添加到NG表格并保存
 };
 
 #endif // MAINWINDOW_H
