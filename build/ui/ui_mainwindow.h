@@ -91,6 +91,8 @@ public:
     QVBoxLayout *verticalLayout_right;
     QGroupBox *ngGroupBox;
     QVBoxLayout *verticalLayout_ng;
+    QHBoxLayout *horizontalLayout_weightRange;
+    QLabel *weightRangeLabel;
     QHBoxLayout *horizontalLayout_ngButtons;
     QPushButton *ngAddBtn;
     QPushButton *productionSupplementBtn;
@@ -414,6 +416,16 @@ public:
         ngGroupBox->setObjectName("ngGroupBox");
         verticalLayout_ng = new QVBoxLayout(ngGroupBox);
         verticalLayout_ng->setObjectName("verticalLayout_ng");
+        horizontalLayout_weightRange = new QHBoxLayout();
+        horizontalLayout_weightRange->setObjectName("horizontalLayout_weightRange");
+        weightRangeLabel = new QLabel(ngGroupBox);
+        weightRangeLabel->setObjectName("weightRangeLabel");
+
+        horizontalLayout_weightRange->addWidget(weightRangeLabel);
+
+
+        verticalLayout_ng->addLayout(horizontalLayout_weightRange);
+
         horizontalLayout_ngButtons = new QHBoxLayout();
         horizontalLayout_ngButtons->setObjectName("horizontalLayout_ngButtons");
         ngAddBtn = new QPushButton(ngGroupBox);
@@ -821,6 +833,7 @@ public:
         slot1_3->setText(QString());
         slot1_4->setText(QString());
         ngGroupBox->setTitle(QCoreApplication::translate("MainWindow", "NG\345\223\201\350\241\250\346\240\274", nullptr));
+        weightRangeLabel->setText(QCoreApplication::translate("MainWindow", "\346\234\200\345\244\247\351\207\215\351\207\217: -- g    \346\234\200\345\260\217\351\207\215\351\207\217: -- g", nullptr));
         ngAddBtn->setText(QCoreApplication::translate("MainWindow", "\346\267\273\345\212\240", nullptr));
         productionSupplementBtn->setText(QCoreApplication::translate("MainWindow", "\347\224\237\344\272\247\350\241\245\345\205\205", nullptr));
         ngDeleteBtn->setText(QCoreApplication::translate("MainWindow", "\345\210\240\351\231\244", nullptr));

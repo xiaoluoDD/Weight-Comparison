@@ -20,6 +20,11 @@
 #include <QVector>
 #include <algorithm>
 
+// 空槽位阈值，重量<=此值视为空，不参与偏差比较
+static const double EmptySlotThreshold = 0.0001;
+
+static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -358,6 +363,29 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             WeightData w2 = firstCarDataToWeightData(twoCar.car2);
             appendToCurrentTable(w2, 2);
             Logger::info("解析到第二托数据并已写入当前表格");
+            // 只把正常数据（非红）与最大最小比较，异常值不参与
+            if (m_displayMaxWeight >= 0 || m_displayMinWeight >= 0) {
+                double w1[8], w2arr[8];
+                for (int i = 0; i < 8; ++i) {
+                    w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+                    w2arr[i] = (i < twoCar.car2.weights.size()) ? twoCar.car2.weights[i] : 0.0;
+                }
+                QSet<int> red2 = computeRedSlotsCar2(w1, w2arr, ui->deviationThresholdSpinBox->value());
+                bool updated = false;
+                for (int i = 0; i < 8; ++i) {
+                    if (red2.contains(i) || w2arr[i] <= EmptySlotThreshold) continue;  // 跳过异常和空槽
+                    double w = w2arr[i];
+                    if (m_displayMaxWeight >= 0 && w > m_displayMaxWeight) {
+                        m_displayMaxWeight = w;
+                        updated = true;
+                    }
+                    if (m_displayMinWeight >= 0 && w < m_displayMinWeight) {
+                        m_displayMinWeight = w;
+                        updated = true;
+                    }
+                }
+                if (updated) updateWeightRangeDisplay();
+            }
         }
     }
 }
@@ -422,9 +450,6 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
 
 // 协议用 float 传输，转 g 后仍有精度误差，60g 边界需容差
 static const double DeviationEpsilon = 0.001;  // 0.001g 容差
-
-// 空槽位阈值，重量<=此值视为空，不参与偏差比较
-static const double EmptySlotThreshold = 0.0001;
 
 // 第一托偏差逻辑：从最大重量依次比较每一个，有>=阈值则变红；空槽位不参与；直到某重量无超差则停止
 static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
@@ -554,17 +579,30 @@ void MainWindow::refreshAllVisualizationDeviation()
     applySlotDeviationStyle(1, m_car1Data.weights);
     applySlotDeviationStyle(2, m_car2Data.weights);
 
-    // 第一托填满且无超差时启动定时器，2秒后发送；若第二托也填满无超差则发送两托并清空
-    double w1[8];
-    for (int i = 0; i < 8; ++i)
-        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value());
-    bool car1IsFull = true;
+    // 第一托填满且无超差时：未发过第一托OK则启动定时器；已发过则等第二托也填满无超差才启动
+    double w1[8], w2[8];
     for (int i = 0; i < 8; ++i) {
-        if (w1[i] <= EmptySlotThreshold) { car1IsFull = false; break; }
+        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+        w2[i] = (i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0;
+    }
+    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value());
+    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value());
+    bool car1IsFull = true, car2IsFull = true;
+    for (int i = 0; i < 8; ++i) {
+        if (w1[i] <= EmptySlotThreshold) car1IsFull = false;
+        if (w2[i] <= EmptySlotThreshold) car2IsFull = false;
     }
     bool car1NoDeviation = red1.isEmpty() && car1IsFull;
+    bool car2NoDeviation = red2.isEmpty() && car2IsFull;
+    bool shouldStartTimer = false;
     if (car1NoDeviation && m_tcpClient->isConnected()) {
+        if (!m_firstTrayOkSent) {
+            shouldStartTimer = true;  // 未发过第一托OK，2秒后发
+        } else if (car2NoDeviation) {
+            shouldStartTimer = true;  // 已发过第一托OK，等第二托也OK，2秒后发全部
+        }
+    }
+    if (shouldStartTimer) {
         m_detectionOkTimer->start(2000);
     } else {
         m_detectionOkTimer->stop();
@@ -872,17 +910,39 @@ void MainWindow::onDetectionOkTimerFired()
         Logger::info("2托无超差，已发送检测OK指令（含两托数据）");
         doCompleteAndClearBothTrays();
     } else {
-        // 仅第一托填满无超差：发送第一托数据
-        QList<double> w1List;
-        QList<QString> b1List;
-        for (int i = 0; i < 8; ++i) {
-            w1List.append(w1[i]);
-            b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
+        // 仅第一托填满无超差且尚未发过第一托OK：发送第一托数据（只发一次）
+        if (!m_firstTrayOkSent) {
+            QList<double> w1List;
+            QList<QString> b1List;
+            for (int i = 0; i < 8; ++i) {
+                w1List.append(w1[i]);
+                b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
+            }
+            m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
+            m_firstTrayOkSent = true;  // 标记已发，不再重复发送
+            ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
+            Logger::info("第一托无超差，已发送检测OK指令");
+            // 写入第一托最大最小重量到显示
+            double maxW = -1, minW = -1;
+            for (int i = 0; i < 8; ++i) {
+                if (w1[i] > EmptySlotThreshold) {
+                    if (maxW < 0 || w1[i] > maxW) maxW = w1[i];
+                    if (minW < 0 || w1[i] < minW) minW = w1[i];
+                }
+            }
+            m_displayMaxWeight = maxW;
+            m_displayMinWeight = minW;
+            updateWeightRangeDisplay();
         }
-        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
-        ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
-        Logger::info("第一托无超差，已发送检测OK指令");
+        // 已发过第一托OK则不做任何事，等待第二托也OK后发送全部
     }
+}
+
+void MainWindow::updateWeightRangeDisplay()
+{
+    QString maxStr = (m_displayMaxWeight >= 0) ? QString::number(m_displayMaxWeight, 'f', 1) : QStringLiteral("--");
+    QString minStr = (m_displayMinWeight >= 0) ? QString::number(m_displayMinWeight, 'f', 1) : QStringLiteral("--");
+    ui->weightRangeLabel->setText(QStringLiteral("最大重量: %1 g    最小重量: %2 g").arg(maxStr).arg(minStr));
 }
 
 void MainWindow::onSaveDeviationClicked()
@@ -945,8 +1005,12 @@ void MainWindow::doCompleteAndClearBothTrays()
         slots2[i]->setStyleSheet(QString());
     }
     m_detectionOkTimer->stop();
+    m_firstTrayOkSent = false;  // 清空后重置，下一轮可再发第一托OK
     m_car1Data = PlcProtocol::FirstCarData();
     m_car2Data = PlcProtocol::FirstCarData();
+    m_displayMaxWeight = -1;
+    m_displayMinWeight = -1;
+    updateWeightRangeDisplay();
     refreshAllVisualizationDeviation();
     Logger::info(QString("2托完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
 }

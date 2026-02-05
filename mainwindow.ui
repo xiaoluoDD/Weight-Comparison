@@ -456,6 +456,17 @@
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_ng">
               <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_weightRange">
+                <item>
+                 <widget class="QLabel" name="weightRangeLabel">
+                  <property name="text">
+                   <string>最大重量: -- g    最小重量: -- g</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
                <layout class="QHBoxLayout" name="horizontalLayout_ngButtons">
                 <item>
                  <widget class="QPushButton" name="ngAddBtn">

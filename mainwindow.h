@@ -94,6 +94,11 @@ private:
     int m_lastSupplementQuantity = 0;   // 上次请求的补充数量，用于读取前N个工件
     bool m_lastCar1HadDeviation = false; // 第一托上次是否有超差，用于检测OK发送
     QTimer *m_detectionOkTimer = nullptr;  // 延迟发送OK，避免连续放入NG时过早发送
+    bool m_firstTrayOkSent = false;  // 第一托OK已发送后不再重复发送，只等待发送全部OK
+    double m_displayMaxWeight = -1;  // 当前显示的最大重量(g)，-1表示未设置
+    double m_displayMinWeight = -1;  // 当前显示的最小重量(g)，-1表示未设置
+
+    void updateWeightRangeDisplay();  // 更新最大/最小重量显示
 
     // 初始化函数
     void initializeUI();
