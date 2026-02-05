@@ -119,6 +119,7 @@ private:
     void addNgRecord(const QString &vehicleModel, const QString &barcode, double weightG);  // 添加到NG表格并保存(克)
     void clearCurrentTableSlot(int carIndex, int slotIndex);  // 可视化添加到NG时，同步清空当前表格对应槽位
     void clearCarDataAndVisualization(int carIndex);  // 生产补充时清空指定托的所有数据和可视化
+    void doCompleteAndClearBothTrays();  // 保存两托到历史、清空表格和可视化
     void mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCarData &car, int count);  // 将PLC返回的补充生产前N个工件合并到指定托
     void updateCurrentTableSlot(int carIndex, int slotIndex, const QString &vehicleModel, double weightG, const QString &barcode);  // 备用调入时，同步更新当前表格(克)
     void applyCurrentTableDeviationStyle(int carIndex, int row, const QList<double> &weights);  // 当前表格偏差格显示红色

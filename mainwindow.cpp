@@ -452,6 +452,66 @@ static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
     return redSlots;
 }
 
+/**
+ * 第二托偏差逻辑（第一托为固定标准）：
+ * 1. 每个物品与第一托比较，超差则标红
+ * 2. 黑色物品内部比较，超差的进入第三步
+ * 3. 若仅2个超差：任一个红一个黑；若3个及以上：取平均，小于平均的标红，大于等于平均的保持黑
+ */
+static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG)
+{
+    QSet<int> redSlots;
+
+    // 第一步：与第一托比较，超差则标红
+    for (int i = 0; i < 8; ++i) {
+        if (w2[i] <= EmptySlotThreshold) continue;
+        for (int j = 0; j < 8; ++j) {
+            if (w1[j] <= EmptySlotThreshold) continue;
+            if (qAbs(w2[i] - w1[j]) >= thresholdG - DeviationEpsilon) {
+                redSlots.insert(i);
+                break;
+            }
+        }
+    }
+
+    // 第二步：黑色物品内部比较，找出超差的集合（不含已红的）
+    QSet<int> internalDeviationSet;
+    for (int i = 0; i < 8; ++i) {
+        if (w2[i] <= EmptySlotThreshold || redSlots.contains(i)) continue;
+        for (int j = i + 1; j < 8; ++j) {
+            if (w2[j] <= EmptySlotThreshold || redSlots.contains(j)) continue;
+            if (qAbs(w2[i] - w2[j]) >= thresholdG - DeviationEpsilon) {
+                internalDeviationSet.insert(i);
+                internalDeviationSet.insert(j);
+            }
+        }
+    }
+
+    // 第三步：对内部超差集合处理
+    if (internalDeviationSet.size() == 2) {
+        // 仅2个：任一个红一个黑，取索引小的标红
+        QList<int> list = internalDeviationSet.values();
+        redSlots.insert(list[0]);
+    } else if (internalDeviationSet.size() >= 3) {
+        // 3个及以上：取重量平均，按平均分为2部分（小于平均 / 大于等于平均），数量少的那部分标红
+        double sum = 0;
+        for (int idx : internalDeviationSet)
+            sum += w2[idx];
+        double avg = sum / internalDeviationSet.size();
+        QVector<int> belowAvg, aboveAvg;
+        for (int idx : internalDeviationSet) {
+            if (w2[idx] < avg - DeviationEpsilon)
+                belowAvg.append(idx);
+            else
+                aboveAvg.append(idx);
+        }
+        const QVector<int> &toRed = (belowAvg.size() <= aboveAvg.size()) ? belowAvg : aboveAvg;
+        for (int idx : toRed)
+            redSlots.insert(idx);
+    }
+    return redSlots;
+}
+
 void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights)
 {
     QLabel *slotLabels[8];
@@ -472,14 +532,10 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
     if (carIndex == 1) {
         redSlots = computeRedSlotsCar1(w, deviationThresholdG);
     } else {
-        for (int i = 0; i < 8; ++i) {
-            for (int j = i + 1; j < 8; ++j) {
-                if (qAbs(w[i] - w[j]) >= deviationThresholdG - DeviationEpsilon) {
-                    redSlots.insert(i);
-                    redSlots.insert(j);
-                }
-            }
-        }
+        double w1[8];
+        for (int i = 0; i < 8; ++i)
+            w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
     }
 
     // 使用应用级默认颜色，避免被之前设置的 styleSheet 影响
@@ -498,7 +554,7 @@ void MainWindow::refreshAllVisualizationDeviation()
     applySlotDeviationStyle(1, m_car1Data.weights);
     applySlotDeviationStyle(2, m_car2Data.weights);
 
-    // 第一托填满且无超差时向PLC发送OK信号（延迟2秒稳定后发送，避免连续放入NG时过早发送）
+    // 第一托填满且无超差时启动定时器，2秒后发送；若第二托也填满无超差则发送两托并清空
     double w1[8];
     for (int i = 0; i < 8; ++i)
         w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
@@ -509,9 +565,9 @@ void MainWindow::refreshAllVisualizationDeviation()
     }
     bool car1NoDeviation = red1.isEmpty() && car1IsFull;
     if (car1NoDeviation && m_tcpClient->isConnected()) {
-        m_detectionOkTimer->start(2000);  // 2秒稳定后发送，期间若有变化会重置
+        m_detectionOkTimer->start(2000);
     } else {
-        m_detectionOkTimer->stop();  // 未满或有超差则取消待发送
+        m_detectionOkTimer->stop();
     }
     m_lastCar1HadDeviation = !car1NoDeviation;
 
@@ -693,9 +749,11 @@ void MainWindow::onProductionSupplementClicked()
     m_lastSupplementTrayIndex = trayIndex;
     m_lastSupplementQuantity = supplementQty;
 
-    // 清空另一托的所有数据
-    int otherTray = (trayIndex == 1) ? 2 : 1;
-    clearCarDataAndVisualization(otherTray);
+    // 仅第一托补充时清空第二托；第二托补充时保留第一托（第一托为比较标准，需参与第二托偏差判断）
+    if (trayIndex == 1) {
+        clearCarDataAndVisualization(2);
+    }
+    // trayIndex==2 时不清空第一托
 
     ui->statusbar->showMessage(QStringLiteral("已发送生产补充指令: 第%1托, 数量%2").arg(trayIndex).arg(supplementQty), 3000);
     Logger::info(QString("生产补充: 托%1 车型%2 数量%3").arg(trayIndex).arg(vehicleType).arg(supplementQty));
@@ -784,8 +842,44 @@ WeightData MainWindow::currentTableRowToWeightData(QTableWidget *table, int row)
 
 void MainWindow::onDetectionOkTimerFired()
 {
-    if (m_tcpClient->isConnected()) {
-        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacket());
+    if (!m_tcpClient->isConnected()) return;
+    // 再次检查第二托是否也填满且无超差
+    double w2[8];
+    for (int i = 0; i < 8; ++i)
+        w2[i] = (i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0;
+    double w1[8];
+    for (int i = 0; i < 8; ++i)
+        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value());
+    bool car2IsFull = true;
+    for (int i = 0; i < 8; ++i) {
+        if (w2[i] <= EmptySlotThreshold) { car2IsFull = false; break; }
+    }
+    bool car2NoDeviation = red2.isEmpty() && car2IsFull;
+
+    if (car2NoDeviation) {
+        // 两托都填满且无超差：发送两托数据，保存并清空
+        QList<double> w1List, w2List;
+        QList<QString> b1List, b2List;
+        for (int i = 0; i < 8; ++i) {
+            w1List.append(w1[i]);
+            b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
+            w2List.append(w2[i]);
+            b2List.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
+        }
+        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketBoth(w1List, b1List, m_car1Data.vehicleType, w2List, b2List, m_car2Data.vehicleType));
+        ui->statusbar->showMessage(QStringLiteral("2托检测OK，已发送信号并清空"), 2000);
+        Logger::info("2托无超差，已发送检测OK指令（含两托数据）");
+        doCompleteAndClearBothTrays();
+    } else {
+        // 仅第一托填满无超差：发送第一托数据
+        QList<double> w1List;
+        QList<QString> b1List;
+        for (int i = 0; i < 8; ++i) {
+            w1List.append(w1[i]);
+            b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
+        }
+        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
         ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
         Logger::info("第一托无超差，已发送检测OK指令");
     }
@@ -807,13 +901,31 @@ void MainWindow::onCompleteCurrent1Clicked()
 
 void MainWindow::onCompleteCurrent2Clicked()
 {
-    // 第二托完成代表2托都完成：保存到历史、清空2个当前表格和2个可视化
     int totalRows = ui->extraTable1->rowCount() + ui->extraTable2->rowCount();
     if (totalRows == 0) {
         QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
         return;
     }
-    // 保存两个表格到历史
+    // 发送第二托完成OK指令（携带两托所有物品数据）
+    if (m_tcpClient->isConnected()) {
+        QList<double> w1, w2;
+        QList<QString> b1, b2;
+        for (int i = 0; i < 8; ++i) {
+            w1.append((i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0);
+            b1.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
+            w2.append((i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0);
+            b2.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
+        }
+        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketBoth(w1, b1, m_car1Data.vehicleType, w2, b2, m_car2Data.vehicleType));
+        Logger::info("2托完成，已发送检测OK指令（含两托数据）");
+    }
+    doCompleteAndClearBothTrays();
+    ui->statusbar->showMessage(QStringLiteral("2托已完成，已发送OK指令、保存到历史并清空"), 2000);
+}
+
+void MainWindow::doCompleteAndClearBothTrays()
+{
+    int totalRows = ui->extraTable1->rowCount() + ui->extraTable2->rowCount();
     for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
         WeightData w = currentTableRowToWeightData(ui->extraTable1, r);
         addWeightData(w, 1);
@@ -822,10 +934,8 @@ void MainWindow::onCompleteCurrent2Clicked()
         WeightData w = currentTableRowToWeightData(ui->extraTable2, r);
         addWeightData(w, 2);
     }
-    // 清空2个当前表格
     ui->extraTable1->setRowCount(0);
     ui->extraTable2->setRowCount(0);
-    // 清空2个可视化界面
     QLabel *slots1[] = { ui->slot1_1, ui->slot1_2, ui->slot1_3, ui->slot1_4, ui->slot1_5, ui->slot1_6, ui->slot1_7, ui->slot1_8 };
     QLabel *slots2[] = { ui->slot2_1, ui->slot2_2, ui->slot2_3, ui->slot2_4, ui->slot2_5, ui->slot2_6, ui->slot2_7, ui->slot2_8 };
     for (int i = 0; i < 8; ++i) {
@@ -834,11 +944,10 @@ void MainWindow::onCompleteCurrent2Clicked()
         slots2[i]->setText(QString());
         slots2[i]->setStyleSheet(QString());
     }
-    // 清空内存中的托数据
+    m_detectionOkTimer->stop();
     m_car1Data = PlcProtocol::FirstCarData();
     m_car2Data = PlcProtocol::FirstCarData();
-    refreshAllVisualizationDeviation();  // 清空后刷新偏差样式
-    ui->statusbar->showMessage(QStringLiteral("2托已完成，已保存到历史并清空"), 2000);
+    refreshAllVisualizationDeviation();
     Logger::info(QString("2托完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
 }
 
@@ -1086,14 +1195,10 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
     if (carIndex == 1) {
         redSlots = computeRedSlotsCar1(w, deviationThresholdG);
     } else {
-        for (int i = 0; i < 8; ++i) {
-            for (int j = i + 1; j < 8; ++j) {
-                if (qAbs(w[i] - w[j]) >= deviationThresholdG - DeviationEpsilon) {
-                    redSlots.insert(i);
-                    redSlots.insert(j);
-                }
-            }
-        }
+        double w1[8];
+        for (int i = 0; i < 8; ++i)
+            w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
     }
     for (int i = 0; i < 8; ++i) {
         QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
