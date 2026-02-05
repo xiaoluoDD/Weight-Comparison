@@ -1,9 +1,12 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "slotdialog.h"
+#include "ngadddialog.h"
 #include "ngusedialog.h"
+#include "supplementdialog.h"
 #include "logger.h"
 #include "database.h"
+#include <QApplication>
 #include <QMessageBox>
 #include <QHeaderView>
 #include <QFileDialog>
@@ -13,6 +16,9 @@
 #include <QFont>
 #include <QMouseEvent>
 #include <QSet>
+#include <QBrush>
+#include <QVector>
+#include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,18 +29,30 @@ MainWindow::MainWindow(QWidget *parent)
     
     // 创建TCP客户端
     m_tcpClient = new TcpClient(this);
-    
+
+    // 检测OK延迟发送定时器（2秒稳定后再发，避免连续放入NG时过早发送）
+    m_detectionOkTimer = new QTimer(this);
+    m_detectionOkTimer->setSingleShot(true);
+    connect(m_detectionOkTimer, &QTimer::timeout, this, &MainWindow::onDetectionOkTimerFired);
+
     // 初始化UI设置
     initializeUI();
     
     setupConnections();
 
     // 初始化数据库并加载历史记录、NG记录、车型绑定
-    if (DatabaseManager::instance().init()) {
+    if (!DatabaseManager::instance().init()) {
+        QMessageBox::critical(this, QStringLiteral("数据库错误"),
+            QStringLiteral("数据库初始化失败，NG品添加、历史记录等功能将不可用。\n请检查程序目录是否有写权限。"));
+        Logger::error("数据库初始化失败，部分功能受限");
+    } else {
         m_bindingMap = DatabaseManager::instance().loadBindings();
-        ui->bindingListWidget->clear();
-        for (auto it = m_bindingMap.constBegin(); it != m_bindingMap.constEnd(); ++it)
-            ui->bindingListWidget->addItem(QString("%1 -> %2").arg(it.key(), it.value()));
+        ui->bindingTable->setRowCount(m_bindingMap.size());
+        int row = 0;
+        for (auto it = m_bindingMap.constBegin(); it != m_bindingMap.constEnd(); ++it, ++row) {
+            ui->bindingTable->setItem(row, 0, new QTableWidgetItem(it.key()));
+            ui->bindingTable->setItem(row, 1, new QTableWidgetItem(it.value()));
+        }
         Logger::info(QString("已从数据库加载车型绑定: %1 条").arg(m_bindingMap.size()));
 
         m_weightDataList1 = DatabaseManager::instance().loadWeightRecords(1);
@@ -51,11 +69,17 @@ MainWindow::MainWindow(QWidget *parent)
             ui->ngTable->setItem(i, 0, new QTableWidgetItem(row.value(0).toString()));
             ui->ngTable->setItem(i, 1, new QTableWidgetItem(row.value(1).toString()));
             ui->ngTable->setItem(i, 2, new QTableWidgetItem(row.value(2).toString()));
-            ui->ngTable->setItem(i, 3, new QTableWidgetItem(QString::number(row.value(3).toDouble() * 1000.0, 'f', 1)));  // 显示克
+            ui->ngTable->setItem(i, 3, new QTableWidgetItem(QString::number(row.value(3).toDouble(), 'f', 1)));  // 数据库存克(g)
             QDateTime dt = QDateTime::fromString(row.value(4).toString(), Qt::ISODate);
             ui->ngTable->setItem(i, 4, new QTableWidgetItem(dt.toString("yyyy-MM-dd hh:mm:ss")));
         }
         Logger::info(QString("已从数据库加载NG记录: %1 条").arg(ngList.size()));
+
+        // 加载系统设置
+        ui->serverAddressEdit->setText(DatabaseManager::instance().getSetting("server_address", "127.0.0.1").toString());
+        ui->serverPortEdit->setText(DatabaseManager::instance().getSetting("server_port", "8080").toString());
+        ui->deviationThresholdSpinBox->setValue(DatabaseManager::instance().getSetting("deviation_threshold_g", 60.0).toDouble());
+        Logger::info("已从数据库加载系统设置");
     }
 
     // 初始化状态
@@ -69,12 +93,22 @@ MainWindow::~MainWindow()
 
 void MainWindow::initializeUI()
 {
+    // 系统设置区域：TCP连接和偏差参数不拉伸，保持正常大小
+    ui->verticalLayout_settings->setStretchFactor(ui->connectionGroup, 0);
+    ui->verticalLayout_settings->setStretchFactor(ui->deviationGroup, 0);
+
     // 设置NG品表格列标题和属性
     ui->ngTable->horizontalHeader()->setStretchLastSection(true);
+
+    // 设置车型绑定表格列宽
+    ui->bindingTable->horizontalHeader()->setStretchLastSection(true);
     
     // 设置历史记录表格列宽（不拉伸最后一列，设置固定列宽以便一次性显示所有列）
     setupHistoryTableColumns(ui->weightTable1);
     setupHistoryTableColumns(ui->weightTable2);
+    // 第一托/第二托当前表格：与历史表格相同的列结构
+    setupCurrentTableColumns(ui->extraTable1);
+    setupCurrentTableColumns(ui->extraTable2);
     
     // 设置称重数据标签页的布局拉伸比例
     // 列拉伸：左列(0)为1，右列(1)为2（左边窄，右边宽）
@@ -83,6 +117,13 @@ void MainWindow::initializeUI()
     // 行拉伸：上下两行各为1
     ui->gridLayout_weightData->setRowStretch(0, 1);
     ui->gridLayout_weightData->setRowStretch(1, 1);
+    // 右侧区域：NG品表格占更多空间，当前表格区域降低高度（基本只有1条数据）
+    ui->verticalLayout_right->setStretchFactor(ui->ngGroupBox, 2);
+    ui->verticalLayout_right->setStretchFactor(ui->extraTable1Group, 1);
+    ui->verticalLayout_right->setStretchFactor(ui->extraTable2Group, 1);
+    // 当前表格最大高度限制，便于显示1-2行
+    ui->extraTable1->setMaximumHeight(140);
+    ui->extraTable2->setMaximumHeight(140);
     
     // 设置历史记录标签页的布局拉伸比例（上下两表各为1）
     ui->verticalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
@@ -132,8 +173,19 @@ void MainWindow::initializeUI()
         ui->ngTable->setHorizontalHeaderItem(4, new QTableWidgetItem(QStringLiteral("时间")));
     }
     ui->ngTable->setColumnHidden(0, true);
+    connect(ui->ngAddBtn, &QPushButton::clicked, this, &MainWindow::onNgAddClicked);
+    connect(ui->productionSupplementBtn, &QPushButton::clicked, this, &MainWindow::onProductionSupplementClicked);
     connect(ui->ngDeleteBtn, &QPushButton::clicked, this, &MainWindow::onNgDeleteClicked);
     connect(ui->ngUseBtn, &QPushButton::clicked, this, &MainWindow::onNgUseClicked);
+    connect(ui->completeCurrent1Btn, &QPushButton::clicked, this, &MainWindow::onCompleteCurrent1Clicked);
+    connect(ui->completeCurrent2Btn, &QPushButton::clicked, this, &MainWindow::onCompleteCurrent2Clicked);
+    connect(ui->deviationThresholdSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, [this](double) { refreshAllVisualizationDeviation(); });
+    connect(ui->saveDeviationBtn, &QPushButton::clicked, this, &MainWindow::onSaveDeviationClicked);
+    connect(ui->serverAddressEdit, &QLineEdit::editingFinished,
+            this, [this]() { DatabaseManager::instance().setSetting("server_address", ui->serverAddressEdit->text()); });
+    connect(ui->serverPortEdit, &QLineEdit::editingFinished,
+            this, [this]() { DatabaseManager::instance().setSetting("server_port", ui->serverPortEdit->text()); });
 }
 
 void MainWindow::setupHistoryTableColumns(QTableWidget *table)
@@ -148,6 +200,26 @@ void MainWindow::setupHistoryTableColumns(QTableWidget *table)
         table->setColumnWidth(2 + i * 2, 75);     // 条码1-8
     }
     table->setColumnWidth(17, 130); // 时间
+}
+
+void MainWindow::setupCurrentTableColumns(QTableWidget *table)
+{
+    if (table->columnCount() < 18) {
+        table->setColumnCount(18);
+        table->setHorizontalHeaderItem(0, new QTableWidgetItem(QStringLiteral("车型名称")));
+        for (int i = 0; i < 8; ++i) {
+            table->setHorizontalHeaderItem(1 + i * 2, new QTableWidgetItem(QString("重量%1").arg(i + 1)));
+            table->setHorizontalHeaderItem(2 + i * 2, new QTableWidgetItem(QString("条码%1").arg(i + 1)));
+        }
+        table->setHorizontalHeaderItem(17, new QTableWidgetItem(QStringLiteral("时间")));
+    }
+    table->horizontalHeader()->setStretchLastSection(false);
+    table->setColumnWidth(0, 75);
+    for (int i = 0; i < 8; ++i) {
+        table->setColumnWidth(1 + i * 2, 55);
+        table->setColumnWidth(2 + i * 2, 75);
+    }
+    table->setColumnWidth(17, 130);
 }
 
 void MainWindow::setupConnections()
@@ -235,6 +307,15 @@ void MainWindow::updateConnectionStatus(bool connected)
     }
 }
 
+static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
+{
+    if (car.assemblyDone != 1) return true;
+    for (double w : car.weights) {
+        if (w > 0.0001) return false;
+    }
+    return true;  // 完成标志有但重量全0，视为空
+}
+
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
     m_receiveBuffer.append(data);
@@ -247,18 +328,37 @@ void MainWindow::parseReceivedData(const QByteArray &data)
         if (!PlcProtocol::parseTwoCarPacket(packet, twoCar))
             continue;
 
-        // 正常生产或生产模式为0时，将重量显示在第一托/第二托可视化对应槽位
-        // 注：部分设备可能发送 productionMode=0 表示正常生产
-        if (twoCar.car1.productionMode == PlcProtocol::NormalProduction || twoCar.car1.productionMode == 0)
-            updateCarVisualization(1, twoCar.car1);
-        if (twoCar.car2.productionMode == PlcProtocol::NormalProduction || twoCar.car2.productionMode == 0)
-            updateCarVisualization(2, twoCar.car2);
+        // 补充生产：识别 productionMode==2，读取对应托的前N个工件并合并
+        bool car1Supplement = (twoCar.car1.productionMode == PlcProtocol::SupplementProduction);
+        bool car2Supplement = (twoCar.car2.productionMode == PlcProtocol::SupplementProduction);
+        if (car1Supplement || car2Supplement) {
+            int trayIndex = car1Supplement ? 1 : 2;
+            const PlcProtocol::FirstCarData &car = car1Supplement ? twoCar.car1 : twoCar.car2;
+            int count = m_lastSupplementQuantity;
+            if (count <= 0) count = 8;  // 未记录时取前8个
+            mergeSupplementIntoCar(trayIndex, car, count);
+            Logger::info(QString("解析到补充生产数据: 第%1托 前%2个工件").arg(trayIndex).arg(count));
+            continue;
+        }
 
-        WeightData w1 = firstCarDataToWeightData(twoCar.car1);
-        WeightData w2 = firstCarDataToWeightData(twoCar.car2);
-        addWeightData(w1, 1);
-        addWeightData(w2, 2);
-        Logger::info("解析到一帧2车数据并已写入历史记录");
+        // 正常生产：通过完成标志(assemblyDone)识别是哪一托
+        bool car1Valid = (twoCar.car1.assemblyDone == 1) && (twoCar.car1.productionMode == PlcProtocol::NormalProduction || twoCar.car1.productionMode == 0);
+        bool car2Valid = (twoCar.car2.assemblyDone == 1) && (twoCar.car2.productionMode == PlcProtocol::NormalProduction || twoCar.car2.productionMode == 0);
+        bool car2Empty = isCarDataEmpty(twoCar.car2);
+
+        if (car1Valid && car2Empty) {
+            // 第一托数据：第二托为空，只更新第一托
+            updateCarVisualization(1, twoCar.car1);
+            WeightData w1 = firstCarDataToWeightData(twoCar.car1);
+            appendToCurrentTable(w1, 1);
+            Logger::info("解析到第一托数据并已写入当前表格");
+        } else if (car2Valid) {
+            // 第二托数据：第一托已有不再变，只更新第二托
+            updateCarVisualization(2, twoCar.car2);
+            WeightData w2 = firstCarDataToWeightData(twoCar.car2);
+            appendToCurrentTable(w2, 2);
+            Logger::info("解析到第二托数据并已写入当前表格");
+        }
     }
 }
 
@@ -273,16 +373,19 @@ WeightData MainWindow::firstCarDataToWeightData(const PlcProtocol::FirstCarData 
 {
     WeightData w;
     w.setTimestamp(QDateTime::currentDateTime());
-    w.setVehicleModel(vehicleTypeToString(car.vehicleType));
+    QString vehicleModel = getItemNameByCommand(QString::number(car.vehicleType));
+    if (vehicleModel.isEmpty())
+        vehicleModel = vehicleTypeToString(car.vehicleType);
+    w.setVehicleModel(vehicleModel);
     w.setWeights(car.weights);
     w.setBarcodes(car.barcodes);
     return w;
 }
 
-QString MainWindow::formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const
+QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, const QString &barcode) const
 {
     QString vm = vehicleModel.isEmpty() ? QStringLiteral("-") : vehicleModel;
-    QString w = QString::number(weightKg * 1000.0, 'f', 1);
+    QString w = QString::number(weightG, 'f', 1);  // 内部统一克(g)
     QString bc = barcode.isEmpty() ? QStringLiteral("-") : barcode;
     return QStringLiteral("%1\n%2\n%3").arg(vm).arg(w).arg(bc);
 }
@@ -314,7 +417,39 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
         QString bc = (i < barcodes.size()) ? barcodes[i] : QString();
         slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
     }
-    applySlotDeviationStyle(carIndex, weights);
+    refreshAllVisualizationDeviation();  // 每次物品移动后判断任意2个是否大于60g
+}
+
+// 协议用 float 传输，转 g 后仍有精度误差，60g 边界需容差
+static const double DeviationEpsilon = 0.001;  // 0.001g 容差
+
+// 空槽位阈值，重量<=此值视为空，不参与偏差比较
+static const double EmptySlotThreshold = 0.0001;
+
+// 第一托偏差逻辑：从最大重量依次比较每一个，有>=阈值则变红；空槽位不参与；直到某重量无超差则停止
+static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
+{
+    QSet<int> redSlots;
+    QVector<int> indices(8);
+    for (int i = 0; i < 8; ++i) indices[i] = i;
+    std::sort(indices.begin(), indices.end(), [&w](int a, int b) { return w[a] > w[b]; });
+
+    for (int k = 0; k < 8; ++k) {
+        int i = indices[k];
+        if (w[i] <= EmptySlotThreshold) continue;  // 空槽位不参与比较
+        bool hasDeviation = false;
+        for (int j = 0; j < 8; ++j) {
+            if (i == j) continue;
+            if (w[j] <= EmptySlotThreshold) continue;  // 空槽位不参与比较
+            if (qAbs(w[i] - w[j]) >= thresholdG - DeviationEpsilon) {
+                redSlots.insert(i);
+                redSlots.insert(j);
+                hasDeviation = true;
+            }
+        }
+        if (!hasDeviation) break;  // 直到没有超过阈值的，顺延停止
+    }
+    return redSlots;
 }
 
 void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights)
@@ -327,24 +462,74 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         slotLabels[0] = ui->slot2_1; slotLabels[1] = ui->slot2_2; slotLabels[2] = ui->slot2_3; slotLabels[3] = ui->slot2_4;
         slotLabels[4] = ui->slot2_5; slotLabels[5] = ui->slot2_6; slotLabels[6] = ui->slot2_7; slotLabels[7] = ui->slot2_8;
     }
-    const double deviationThresholdKg = 0.06;  // 60克 = 0.06 kg
+    const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
 
     double w[8];
     for (int i = 0; i < 8; ++i)
         w[i] = (i < weights.size()) ? weights[i] : 0.0;
 
     QSet<int> redSlots;
-    for (int i = 0; i < 8; ++i) {
-        for (int j = i + 1; j < 8; ++j) {
-            if (qAbs(w[i] - w[j]) >= deviationThresholdKg) {
-                redSlots.insert(i);
-                redSlots.insert(j);
+    if (carIndex == 1) {
+        redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+    } else {
+        for (int i = 0; i < 8; ++i) {
+            for (int j = i + 1; j < 8; ++j) {
+                if (qAbs(w[i] - w[j]) >= deviationThresholdG - DeviationEpsilon) {
+                    redSlots.insert(i);
+                    redSlots.insert(j);
+                }
             }
         }
     }
 
+    // 使用应用级默认颜色，避免被之前设置的 styleSheet 影响
+    QColor defaultTextColor = QApplication::palette().color(QPalette::WindowText);
     for (int i = 0; i < 8; ++i) {
-        slotLabels[i]->setStyleSheet(redSlots.contains(i) ? QStringLiteral("color: red;") : QString());
+        if (redSlots.contains(i)) {
+            slotLabels[i]->setStyleSheet(QStringLiteral("color: red;"));
+        } else {
+            slotLabels[i]->setStyleSheet(QString("color: %1;").arg(defaultTextColor.name()));
+        }
+    }
+}
+
+void MainWindow::refreshAllVisualizationDeviation()
+{
+    applySlotDeviationStyle(1, m_car1Data.weights);
+    applySlotDeviationStyle(2, m_car2Data.weights);
+
+    // 第一托填满且无超差时向PLC发送OK信号（延迟2秒稳定后发送，避免连续放入NG时过早发送）
+    double w1[8];
+    for (int i = 0; i < 8; ++i)
+        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value());
+    bool car1IsFull = true;
+    for (int i = 0; i < 8; ++i) {
+        if (w1[i] <= EmptySlotThreshold) { car1IsFull = false; break; }
+    }
+    bool car1NoDeviation = red1.isEmpty() && car1IsFull;
+    if (car1NoDeviation && m_tcpClient->isConnected()) {
+        m_detectionOkTimer->start(2000);  // 2秒稳定后发送，期间若有变化会重置
+    } else {
+        m_detectionOkTimer->stop();  // 未满或有超差则取消待发送
+    }
+    m_lastCar1HadDeviation = !car1NoDeviation;
+
+    for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
+        QList<double> weights;
+        for (int j = 0; j < 8; ++j) {
+            QTableWidgetItem *wItem = ui->extraTable1->item(r, 1 + j * 2);
+            weights.append(wItem ? wItem->text().toDouble() : 0.0);
+        }
+        applyCurrentTableDeviationStyle(1, r, weights);
+    }
+    for (int r = 0; r < ui->extraTable2->rowCount(); ++r) {
+        QList<double> weights;
+        for (int j = 0; j < 8; ++j) {
+            QTableWidgetItem *wItem = ui->extraTable2->item(r, 1 + j * 2);
+            weights.append(wItem ? wItem->text().toDouble() : 0.0);
+        }
+        applyCurrentTableDeviationStyle(2, r, weights);
     }
 }
 
@@ -389,29 +574,57 @@ void MainWindow::onSlotDoubleClicked(int carIndex, int slotIndex)
     }
 
     const PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
-    QString vehicleModel = vehicleTypeToString(car.vehicleType);
-    double weight = (slotIndex < car.weights.size()) ? car.weights[slotIndex] : 0.0;
+    QString vehicleModel = getItemNameByCommand(QString::number(car.vehicleType));
+    if (vehicleModel.isEmpty())
+        vehicleModel = vehicleTypeToString(car.vehicleType);
+    double weightG = (slotIndex < car.weights.size()) ? car.weights[slotIndex] : 0.0;
     QString barcode = (slotIndex < car.barcodes.size()) ? car.barcodes[slotIndex] : QString();
 
-    SlotDialog dlg(vehicleModel, weight, barcode, this);
+    SlotDialog dlg(vehicleModel, weightG, barcode, this);
     if (dlg.exec() == QDialog::Accepted && dlg.addToNgRequested()) {
-        addNgRecord(vehicleModel, barcode, weight);
+        addNgRecord(vehicleModel, barcode, weightG);
         slotLabels[slotIndex]->setText(QString());
         PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
         while (car.weights.size() < 8) car.weights.append(0.0);
         while (car.barcodes.size() < 8) car.barcodes.append(QString());
-        car.weights[slotIndex] = 0.0;
+        car.weights[slotIndex] = 0.0;  // 克(g)
         car.barcodes[slotIndex] = QString();
-        applySlotDeviationStyle(carIndex, car.weights);
+        clearCurrentTableSlot(carIndex, slotIndex);  // 先同步清空当前表格，再刷新偏差
+        refreshAllVisualizationDeviation();  // 物品移出，重新比较剩余物品，红/黑正确更新
         ui->statusbar->showMessage(QStringLiteral("已添加到NG品"), 2000);
-        Logger::info(QString("槽位 %1-%2 已添加到NG: 车型=%3, 重量=%4, 条码=%5")
-                     .arg(carIndex).arg(slotIndex + 1).arg(vehicleModel).arg(weight).arg(barcode));
+        Logger::info(QString("槽位 %1-%2 已添加到NG: 车型=%3, 重量=%4 g, 条码=%5")
+                     .arg(carIndex).arg(slotIndex + 1).arg(vehicleModel).arg(weightG).arg(barcode));
     }
 }
 
-void MainWindow::addNgRecord(const QString &vehicleModel, const QString &barcode, double weight)
+void MainWindow::onNgAddClicked()
 {
-    qint64 id = DatabaseManager::instance().insertNgRecord(vehicleModel, barcode, weight);
+    NgAddDialog dlg(this);
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+    QString vehicleModel = dlg.vehicleModel();
+    QString barcode = dlg.barcode();
+    double weightG = dlg.weightGrams();
+    if (vehicleModel.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("请输入车型名称"));
+        return;
+    }
+    if (barcode.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("请输入条码"));
+        return;
+    }
+    if (weightG <= 0) {
+        QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("请输入有效的重量(克)"));
+        return;
+    }
+    addNgRecord(vehicleModel, barcode, weightG);
+    ui->statusbar->showMessage(QStringLiteral("已添加NG品"), 2000);
+    Logger::info(QString("手动添加NG: 车型=%1, 条码=%2, 重量=%3 g").arg(vehicleModel).arg(barcode).arg(weightG));
+}
+
+void MainWindow::addNgRecord(const QString &vehicleModel, const QString &barcode, double weightG)
+{
+    qint64 id = DatabaseManager::instance().insertNgRecord(vehicleModel, barcode, weightG);
     if (id < 0) {
         QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("NG记录保存到数据库失败"));
         return;
@@ -421,7 +634,7 @@ void MainWindow::addNgRecord(const QString &vehicleModel, const QString &barcode
     ui->ngTable->setItem(row, 0, new QTableWidgetItem(QString::number(id)));
     ui->ngTable->setItem(row, 1, new QTableWidgetItem(vehicleModel));
     ui->ngTable->setItem(row, 2, new QTableWidgetItem(barcode));
-    ui->ngTable->setItem(row, 3, new QTableWidgetItem(QString::number(weight * 1000.0, 'f', 1)));  // 显示克
+    ui->ngTable->setItem(row, 3, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 克(g)
     ui->ngTable->setItem(row, 4, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
 }
 
@@ -450,6 +663,44 @@ void MainWindow::onNgDeleteClicked()
     }
 }
 
+void MainWindow::onProductionSupplementClicked()
+{
+    if (!m_tcpClient->isConnected()) {
+        QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("请先连接PLC"));
+        return;
+    }
+
+    SupplementDialog dlg(m_bindingMap, this);
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    int trayIndex = dlg.trayIndex();
+    QString vehicleCommand = dlg.vehicleCommand();
+    int supplementQty = dlg.supplementQuantity();
+
+    int vehicleType = vehicleCommand.toInt();
+    if (vehicleType <= 0) vehicleType = PlcProtocol::Model12V;
+
+    const PlcProtocol::FirstCarData &selectedCar = (trayIndex == 1) ? m_car1Data : m_car2Data;
+    QList<double> weights = selectedCar.weights;
+    QList<QString> barcodes = selectedCar.barcodes;
+    while (weights.size() < 8) weights.append(0.0);
+    while (barcodes.size() < 8) barcodes.append(QString());
+
+    QByteArray packet = PlcProtocol::buildSupplementPacket(trayIndex, vehicleType, supplementQty, weights, barcodes);
+    m_tcpClient->sendData(packet);
+
+    m_lastSupplementTrayIndex = trayIndex;
+    m_lastSupplementQuantity = supplementQty;
+
+    // 清空另一托的所有数据
+    int otherTray = (trayIndex == 1) ? 2 : 1;
+    clearCarDataAndVisualization(otherTray);
+
+    ui->statusbar->showMessage(QStringLiteral("已发送生产补充指令: 第%1托, 数量%2").arg(trayIndex).arg(supplementQty), 3000);
+    Logger::info(QString("生产补充: 托%1 车型%2 数量%3").arg(trayIndex).arg(vehicleType).arg(supplementQty));
+}
+
 void MainWindow::onNgUseClicked()
 {
     int row = ui->ngTable->currentRow();
@@ -460,7 +711,6 @@ void MainWindow::onNgUseClicked()
     QString vehicleModel = ui->ngTable->item(row, 1)->text();
     QString barcode = ui->ngTable->item(row, 2)->text();
     double weightG = ui->ngTable->item(row, 3)->text().toDouble();  // 表格显示为克
-    double weight = weightG / 1000.0;  // 转为 kg 供协议和槽位数据使用
     qint64 id = ui->ngTable->item(row, 0)->text().toLongLong();
 
     NgUseDialog dlg(this);
@@ -485,16 +735,17 @@ void MainWindow::onNgUseClicked()
         return;
     }
 
-    slotLabels[slotIndex]->setText(formatSlotText(vehicleModel, weight, barcode));
+    slotLabels[slotIndex]->setText(formatSlotText(vehicleModel, weightG, barcode));
 
     PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
     while (car.weights.size() < 8) car.weights.append(0.0);
     while (car.barcodes.size() < 8) car.barcodes.append(QString());
-    car.weights[slotIndex] = weight;
+    car.weights[slotIndex] = weightG;  // 内部克(g)
     car.barcodes[slotIndex] = barcode;
     car.vehicleType = vehicleModelToType(vehicleModel);
 
-    applySlotDeviationStyle(carIndex, car.weights);
+    updateCurrentTableSlot(carIndex, slotIndex, vehicleModel, weightG, barcode);  // 先同步当前表格
+    refreshAllVisualizationDeviation();  // 再重新判断偏差（可视化+当前表格）
 
     if (DatabaseManager::instance().deleteNgRecord(id)) {
         ui->ngTable->removeRow(row);
@@ -508,6 +759,354 @@ int MainWindow::vehicleModelToType(const QString &model)
     if (model.contains(QStringLiteral("12V"))) return PlcProtocol::Model12V;
     if (model.contains(QStringLiteral("16V"))) return PlcProtocol::Model16V;
     return PlcProtocol::Model12V;
+}
+
+WeightData MainWindow::currentTableRowToWeightData(QTableWidget *table, int row)
+{
+    WeightData w;
+    QTableWidgetItem *vmItem = table->item(row, 0);
+    QTableWidgetItem *timeItem = table->item(row, 17);
+    w.setVehicleModel(vmItem ? vmItem->text() : QString());
+    w.setTimestamp(timeItem ? QDateTime::fromString(timeItem->text(), "yyyy-MM-dd hh:mm:ss") : QDateTime::currentDateTime());
+    QList<double> weights;
+    QList<QString> barcodes;
+    for (int j = 0; j < 8; ++j) {
+        QTableWidgetItem *wItem = table->item(row, 1 + j * 2);
+        QTableWidgetItem *bItem = table->item(row, 2 + j * 2);
+        double weightG = wItem ? wItem->text().toDouble() : 0.0;
+        weights.append(weightG);  // 内部克(g)
+        barcodes.append(bItem ? bItem->text() : QString());
+    }
+    w.setWeights(weights);
+    w.setBarcodes(barcodes);
+    return w;
+}
+
+void MainWindow::onDetectionOkTimerFired()
+{
+    if (m_tcpClient->isConnected()) {
+        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacket());
+        ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
+        Logger::info("第一托无超差，已发送检测OK指令");
+    }
+}
+
+void MainWindow::onSaveDeviationClicked()
+{
+    double v = ui->deviationThresholdSpinBox->value();
+    DatabaseManager::instance().setSetting("deviation_threshold_g", v);
+    ui->statusbar->showMessage(QStringLiteral("偏差参数已保存"), 2000);
+    Logger::info(QString("偏差阈值已保存: %1 g").arg(v));
+}
+
+void MainWindow::onCompleteCurrent1Clicked()
+{
+    // 第一托完成按钮不做任何操作，等第二托完成
+    return;
+}
+
+void MainWindow::onCompleteCurrent2Clicked()
+{
+    // 第二托完成代表2托都完成：保存到历史、清空2个当前表格和2个可视化
+    int totalRows = ui->extraTable1->rowCount() + ui->extraTable2->rowCount();
+    if (totalRows == 0) {
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
+        return;
+    }
+    // 保存两个表格到历史
+    for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
+        WeightData w = currentTableRowToWeightData(ui->extraTable1, r);
+        addWeightData(w, 1);
+    }
+    for (int r = 0; r < ui->extraTable2->rowCount(); ++r) {
+        WeightData w = currentTableRowToWeightData(ui->extraTable2, r);
+        addWeightData(w, 2);
+    }
+    // 清空2个当前表格
+    ui->extraTable1->setRowCount(0);
+    ui->extraTable2->setRowCount(0);
+    // 清空2个可视化界面
+    QLabel *slots1[] = { ui->slot1_1, ui->slot1_2, ui->slot1_3, ui->slot1_4, ui->slot1_5, ui->slot1_6, ui->slot1_7, ui->slot1_8 };
+    QLabel *slots2[] = { ui->slot2_1, ui->slot2_2, ui->slot2_3, ui->slot2_4, ui->slot2_5, ui->slot2_6, ui->slot2_7, ui->slot2_8 };
+    for (int i = 0; i < 8; ++i) {
+        slots1[i]->setText(QString());
+        slots1[i]->setStyleSheet(QString());
+        slots2[i]->setText(QString());
+        slots2[i]->setStyleSheet(QString());
+    }
+    // 清空内存中的托数据
+    m_car1Data = PlcProtocol::FirstCarData();
+    m_car2Data = PlcProtocol::FirstCarData();
+    refreshAllVisualizationDeviation();  // 清空后刷新偏差样式
+    ui->statusbar->showMessage(QStringLiteral("2托已完成，已保存到历史并清空"), 2000);
+    Logger::info(QString("2托完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
+}
+
+void MainWindow::completeCurrentTable(QTableWidget *table, int tableIndex)
+{
+    int rowCount = table->rowCount();
+    if (rowCount == 0) {
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
+        return;
+    }
+    for (int r = 0; r < rowCount; ++r) {
+        WeightData w = currentTableRowToWeightData(table, r);
+        addWeightData(w, tableIndex);
+    }
+    table->setRowCount(0);
+    ui->statusbar->showMessage(QStringLiteral("已发送到历史表格并保存"), 2000);
+    Logger::info(QString("当前表格%1 完成: %2 条记录已写入历史").arg(tableIndex).arg(rowCount));
+}
+
+void MainWindow::appendToCurrentTable(const WeightData &data, int carIndex)
+{
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (!table) return;
+    int row = table->rowCount();
+    table->insertRow(row);
+    QList<double> weights = data.weights();
+    QList<QString> barcodes = data.barcodes();
+    int col = 0;
+    table->setItem(row, col++, new QTableWidgetItem(data.vehicleModel()));
+    for (int j = 0; j < 8; ++j) {
+        double weightG = (j < weights.size()) ? weights[j] : 0.0;
+        QString barcode = (j < barcodes.size()) ? barcodes[j] : QString();
+        table->setItem(row, col++, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
+        table->setItem(row, col++, new QTableWidgetItem(barcode));
+    }
+    table->setItem(row, col++, new QTableWidgetItem(data.timestamp().toString("yyyy-MM-dd hh:mm:ss")));
+    applyCurrentTableDeviationStyle(carIndex, row, weights);  // 表格偏差格显示红色
+}
+
+void MainWindow::mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCarData &car, int count)
+{
+    static const double EmptyThreshold = 0.0001;
+    PlcProtocol::FirstCarData &target = (carIndex == 1) ? m_car1Data : m_car2Data;
+    while (target.weights.size() < 8) target.weights.append(0.0);
+    while (target.barcodes.size() < 8) target.barcodes.append(QString());
+
+    auto compactUpward = [&](int startIdx, int count) {
+        QList<double> wList;
+        QList<QString> bList;
+        for (int i = 0; i < count; ++i) {
+            int idx = startIdx + i;
+            double w = target.weights[idx];
+            QString bc = target.barcodes[idx];
+            if (w > EmptyThreshold) {
+                wList.append(w);
+                bList.append(bc);
+            }
+        }
+        for (int i = 0; i < count; ++i) {
+            int idx = startIdx + i;
+            if (i < wList.size()) {
+                target.weights[idx] = wList[i];
+                target.barcodes[idx] = bList[i];
+            } else {
+                target.weights[idx] = 0.0;
+                target.barcodes[idx] = QString();
+            }
+        }
+    };
+
+    auto doMoveOperation = [&]() {
+        double w8 = target.weights[7];
+        QString b8 = target.barcodes[7];
+        if (w8 <= EmptyThreshold) return;  // 8槽位空则无需移动
+
+        bool hasEmptyIn1234 = false;
+        for (int i = 0; i < 4; ++i) {
+            if (target.weights[i] <= EmptyThreshold) hasEmptyIn1234 = true;
+        }
+        if (hasEmptyIn1234) {
+            // 1234有空位：紧凑1234，8往右移入1234
+            compactUpward(0, 4);
+            for (int i = 0; i < 4; ++i) {
+                if (target.weights[i] <= EmptyThreshold) {
+                    target.weights[i] = w8;
+                    target.barcodes[i] = b8;
+                    target.weights[7] = 0.0;
+                    target.barcodes[7] = QString();
+                    return;
+                }
+            }
+        }
+
+        // 1234已满，检查567
+        bool hasEmptyIn567 = false;
+        for (int i = 4; i < 7; ++i) {
+            if (target.weights[i] <= EmptyThreshold) hasEmptyIn567 = true;
+        }
+        if (hasEmptyIn567) {
+            // 567有空位：紧凑567（空位下方往上移），8往上移入567
+            compactUpward(4, 3);
+            for (int i = 4; i < 7; ++i) {
+                if (target.weights[i] <= EmptyThreshold) {
+                    target.weights[i] = w8;
+                    target.barcodes[i] = b8;
+                    target.weights[7] = 0.0;
+                    target.barcodes[7] = QString();
+                    return;
+                }
+            }
+        }
+    };
+
+    // 按顺序推入：工件1 -> 工件2 -> ... 每个先执行移动再放入8槽位
+    int n = qMin(count, 8);
+    for (int i = 0; i < n; ++i) {
+        doMoveOperation();  // 为新工件腾出8槽位
+        double w = (i < car.weights.size()) ? car.weights[i] : 0.0;
+        QString bc = (i < car.barcodes.size()) ? car.barcodes[i] : QString();
+        target.weights[7] = w;   // 从8槽位(入口)进入
+        target.barcodes[7] = bc;
+    }
+    if (target.vehicleType == 0 && car.vehicleType != 0)
+        target.vehicleType = car.vehicleType;
+
+    QString vehicleModel = getItemNameByCommand(QString::number(target.vehicleType));
+    if (vehicleModel.isEmpty())
+        vehicleModel = vehicleTypeToString(target.vehicleType);
+
+    // 更新可视化
+    QLabel *slotLabels[8];
+    if (carIndex == 1) {
+        slotLabels[0] = ui->slot1_1; slotLabels[1] = ui->slot1_2; slotLabels[2] = ui->slot1_3; slotLabels[3] = ui->slot1_4;
+        slotLabels[4] = ui->slot1_5; slotLabels[5] = ui->slot1_6; slotLabels[6] = ui->slot1_7; slotLabels[7] = ui->slot1_8;
+    } else {
+        slotLabels[0] = ui->slot2_1; slotLabels[1] = ui->slot2_2; slotLabels[2] = ui->slot2_3; slotLabels[3] = ui->slot2_4;
+        slotLabels[4] = ui->slot2_5; slotLabels[5] = ui->slot2_6; slotLabels[6] = ui->slot2_7; slotLabels[7] = ui->slot2_8;
+    }
+    for (int i = 0; i < 8; ++i) {
+        double w = (i < target.weights.size()) ? target.weights[i] : 0.0;
+        QString bc = (i < target.barcodes.size()) ? target.barcodes[i] : QString();
+        slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
+    }
+
+    // 更新当前表格：合并到最后一行
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (table->rowCount() == 0) {
+        table->insertRow(0);
+        table->setItem(0, 0, new QTableWidgetItem(vehicleModel));
+        for (int j = 0; j < 8; ++j) {
+            table->setItem(0, 1 + j * 2, new QTableWidgetItem(QString()));
+            table->setItem(0, 2 + j * 2, new QTableWidgetItem(QString()));
+        }
+        table->setItem(0, 17, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
+    }
+    int row = table->rowCount() - 1;
+    QTableWidgetItem *vmItem = table->item(row, 0);
+    if (vmItem && vmItem->text().isEmpty())
+        vmItem->setText(vehicleModel);
+    for (int j = 0; j < 8; ++j) {
+        double w = (j < target.weights.size()) ? target.weights[j] : 0.0;
+        QString bc = (j < target.barcodes.size()) ? target.barcodes[j] : QString();
+        table->setItem(row, 1 + j * 2, new QTableWidgetItem(QString::number(w, 'f', 1)));
+        table->setItem(row, 2 + j * 2, new QTableWidgetItem(bc));
+    }
+    applyCurrentTableDeviationStyle(carIndex, row, target.weights);
+    refreshAllVisualizationDeviation();
+}
+
+void MainWindow::clearCarDataAndVisualization(int carIndex)
+{
+    QLabel *slotLabels[8];
+    if (carIndex == 1) {
+        slotLabels[0] = ui->slot1_1; slotLabels[1] = ui->slot1_2; slotLabels[2] = ui->slot1_3; slotLabels[3] = ui->slot1_4;
+        slotLabels[4] = ui->slot1_5; slotLabels[5] = ui->slot1_6; slotLabels[6] = ui->slot1_7; slotLabels[7] = ui->slot1_8;
+    } else {
+        slotLabels[0] = ui->slot2_1; slotLabels[1] = ui->slot2_2; slotLabels[2] = ui->slot2_3; slotLabels[3] = ui->slot2_4;
+        slotLabels[4] = ui->slot2_5; slotLabels[5] = ui->slot2_6; slotLabels[6] = ui->slot2_7; slotLabels[7] = ui->slot2_8;
+    }
+    for (int i = 0; i < 8; ++i)
+        slotLabels[i]->setText(QString());
+
+    PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
+    car.weights.clear();
+    car.barcodes.clear();
+    for (int i = 0; i < 8; ++i) {
+        car.weights.append(0.0);
+        car.barcodes.append(QString());
+    }
+
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    table->setRowCount(0);
+
+    refreshAllVisualizationDeviation();
+}
+
+void MainWindow::clearCurrentTableSlot(int carIndex, int slotIndex)
+{
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (!table || table->rowCount() == 0) return;
+    int row = table->rowCount() - 1;
+    int weightCol = 1 + slotIndex * 2;
+    int barcodeCol = 2 + slotIndex * 2;
+    QTableWidgetItem *wItem = table->item(row, weightCol);
+    QTableWidgetItem *bItem = table->item(row, barcodeCol);
+    if (wItem) { wItem->setText(QString()); wItem->setData(Qt::ForegroundRole, QVariant()); }
+    if (bItem) { bItem->setText(QString()); bItem->setData(Qt::ForegroundRole, QVariant()); }
+}
+
+void MainWindow::updateCurrentTableSlot(int carIndex, int slotIndex, const QString &vehicleModel, double weightG, const QString &barcode)
+{
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (!table) return;
+    int row;
+    if (table->rowCount() == 0) {
+        table->insertRow(0);
+        row = 0;
+        table->setItem(row, 0, new QTableWidgetItem(vehicleModel));
+        for (int j = 0; j < 8; ++j) {
+            table->setItem(row, 1 + j * 2, new QTableWidgetItem(QString()));
+            table->setItem(row, 2 + j * 2, new QTableWidgetItem(QString()));
+        }
+        table->setItem(row, 17, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
+    } else {
+        row = table->rowCount() - 1;
+        QTableWidgetItem *vmItem = table->item(row, 0);
+        if (vmItem && vmItem->text().isEmpty())
+            vmItem->setText(vehicleModel);
+    }
+    int weightCol = 1 + slotIndex * 2;
+    int barcodeCol = 2 + slotIndex * 2;
+    table->setItem(row, weightCol, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
+    table->setItem(row, barcodeCol, new QTableWidgetItem(barcode));
+}
+
+void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QList<double> &weights)
+{
+    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (!table || row < 0 || row >= table->rowCount()) return;
+    const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
+    double w[8];
+    for (int i = 0; i < 8; ++i)
+        w[i] = (i < weights.size()) ? weights[i] : 0.0;
+    QSet<int> redSlots;
+    if (carIndex == 1) {
+        redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+    } else {
+        for (int i = 0; i < 8; ++i) {
+            for (int j = i + 1; j < 8; ++j) {
+                if (qAbs(w[i] - w[j]) >= deviationThresholdG - DeviationEpsilon) {
+                    redSlots.insert(i);
+                    redSlots.insert(j);
+                }
+            }
+        }
+    }
+    for (int i = 0; i < 8; ++i) {
+        QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
+        QTableWidgetItem *bItem = table->item(row, 2 + i * 2);
+        QBrush redBrush(Qt::red);
+        if (redSlots.contains(i)) {
+            if (wItem) wItem->setForeground(redBrush);
+            if (bItem) bItem->setForeground(redBrush);
+        } else {
+            if (wItem) wItem->setData(Qt::ForegroundRole, QVariant());
+            if (bItem) bItem->setData(Qt::ForegroundRole, QVariant());
+        }
+    }
 }
 
 void MainWindow::addWeightData(const WeightData &data, int tableIndex)
@@ -535,9 +1134,9 @@ void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> 
         int col = 0;
         table->setItem(i, col++, new QTableWidgetItem(data.vehicleModel()));
         for (int j = 0; j < 8; ++j) {
-            double weight = (j < weights.size()) ? weights[j] : 0.0;
+            double weightG = (j < weights.size()) ? weights[j] : 0.0;
             QString barcode = (j < barcodes.size()) ? barcodes[j] : QString();
-            table->setItem(i, col++, new QTableWidgetItem(QString::number(weight * 1000.0, 'f', 1)));  // 显示克
+            table->setItem(i, col++, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
             table->setItem(i, col++, new QTableWidgetItem(barcode));
         }
         table->setItem(i, col++, new QTableWidgetItem(data.timestamp().toString("yyyy-MM-dd hh:mm:ss")));
@@ -579,12 +1178,12 @@ void MainWindow::onAddBindingClicked()
     }
     m_bindingMap[command] = itemName;
     
-    // 更新列表显示
-    ui->bindingListWidget->clear();
-    QMapIterator<QString, QString> it(m_bindingMap);
-    while (it.hasNext()) {
-        it.next();
-        ui->bindingListWidget->addItem(QString("%1 -> %2").arg(it.key(), it.value()));
+    // 更新表格显示
+    ui->bindingTable->setRowCount(m_bindingMap.size());
+    int row = 0;
+    for (auto it = m_bindingMap.constBegin(); it != m_bindingMap.constEnd(); ++it, ++row) {
+        ui->bindingTable->setItem(row, 0, new QTableWidgetItem(it.key()));
+        ui->bindingTable->setItem(row, 1, new QTableWidgetItem(it.value()));
     }
     
     ui->commandEdit->clear();
@@ -594,14 +1193,16 @@ void MainWindow::onAddBindingClicked()
 
 void MainWindow::onRemoveBindingClicked()
 {
-    QListWidgetItem *item = ui->bindingListWidget->currentItem();
-    if (!item) {
-        QMessageBox::information(this, "提示", "请先选择要删除的绑定项！");
+    int row = ui->bindingTable->currentRow();
+    if (row < 0) {
+        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请先选择要删除的绑定项！"));
         return;
     }
-    
-    QString text = item->text();
-    QString command = text.split(" -> ").first();
+    QTableWidgetItem *cmdItem = ui->bindingTable->item(row, 0);
+    QTableWidgetItem *nameItem = ui->bindingTable->item(row, 1);
+    if (!cmdItem || !nameItem) return;
+    QString command = cmdItem->text();
+    QString text = QStringLiteral("%1 -> %2").arg(command).arg(nameItem->text());
     
     int ret = QMessageBox::question(this, "确认", 
                                     QString("确定要删除绑定 '%1' 吗？").arg(text),
@@ -609,8 +1210,8 @@ void MainWindow::onRemoveBindingClicked()
     if (ret == QMessageBox::Yes) {
         if (DatabaseManager::instance().deleteBinding(command)) {
             m_bindingMap.remove(command);
-            delete item;
-            ui->statusbar->showMessage("已删除绑定", 2000);
+            ui->bindingTable->removeRow(row);
+            ui->statusbar->showMessage(QStringLiteral("已删除绑定"), 2000);
         } else {
             QMessageBox::warning(this, QStringLiteral("警告"), QStringLiteral("从数据库删除绑定失败"));
         }

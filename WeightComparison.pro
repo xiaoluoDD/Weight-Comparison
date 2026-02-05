@@ -8,7 +8,9 @@ TEMPLATE = app
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    ngadddialog.cpp \
     ngusedialog.cpp \
+    supplementdialog.cpp \
     slotdialog.cpp \
     tcpclient.cpp \
     weightdata.cpp \
@@ -18,7 +20,9 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h \
+    ngadddialog.h \
     ngusedialog.h \
+    supplementdialog.h \
     slotdialog.h \
     tcpclient.h \
     weightdata.h \

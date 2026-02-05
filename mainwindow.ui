@@ -30,6 +30,18 @@
           <property name="title">
            <string>TCP连接设置</string>
           </property>
+          <property name="maximumSize">
+           <size>
+            <width>400</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <layout class="QFormLayout" name="formLayout_connection">
            <item row="0" column="0">
             <widget class="QLabel" name="label_serverAddress">
@@ -122,6 +134,70 @@
               <string>color: red; font-weight: bold;</string>
              </property>
             </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="deviationGroup">
+          <property name="title">
+           <string>偏差比较参数</string>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>400</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <layout class="QFormLayout" name="formLayout_deviation">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_deviationThreshold">
+             <property name="text">
+              <string>超过阈值(g):</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_deviation">
+             <item>
+              <widget class="QDoubleSpinBox" name="deviationThresholdSpinBox">
+               <property name="suffix">
+                <string> g</string>
+               </property>
+               <property name="minimum">
+                <double>0.1</double>
+               </property>
+               <property name="maximum">
+                <double>9999.0</double>
+               </property>
+               <property name="singleStep">
+                <double>1.0</double>
+               </property>
+               <property name="decimals">
+                <number>1</number>
+               </property>
+               <property name="value">
+                <double>60.0</double>
+               </property>
+               <property name="toolTip">
+                <string>任意两个物品重量差超过此值时标红</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="saveDeviationBtn">
+               <property name="text">
+                <string>保存</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
           </layout>
          </widget>
@@ -228,7 +304,24 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_list">
            <item>
-            <widget class="QListWidget" name="bindingListWidget"/>
+            <widget class="QTableWidget" name="bindingTable">
+             <column>
+              <property name="text">
+               <string>车型代码</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>车型名称</string>
+              </property>
+             </column>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -354,91 +447,219 @@
          </widget>
         </item>
         <item row="0" column="1" rowspan="2">
-         <widget class="QGroupBox" name="rightGroup">
-          <property name="title">
-           <string>NG品表格</string>
-          </property>
+         <widget class="QWidget" name="rightWidget">
           <layout class="QVBoxLayout" name="verticalLayout_right">
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_ngButtons">
-             <item>
-              <widget class="QPushButton" name="productionSupplementBtn">
-               <property name="text">
-                <string>生产补充</string>
-               </property>
-               <property name="maximumWidth">
-                <number>90</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="ngDeleteBtn">
-               <property name="text">
-                <string>删除</string>
-               </property>
-               <property name="maximumWidth">
-                <number>70</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="ngUseBtn">
-               <property name="text">
-                <string>备用调入</string>
-               </property>
-               <property name="maximumWidth">
-                <number>90</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_ng">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
+            <widget class="QGroupBox" name="ngGroupBox">
+             <property name="title">
+              <string>NG品表格</string>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_ng">
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_ngButtons">
+                <item>
+                 <widget class="QPushButton" name="ngAddBtn">
+                  <property name="text">
+                   <string>添加</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>70</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="productionSupplementBtn">
+                  <property name="text">
+                   <string>生产补充</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>90</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="ngDeleteBtn">
+                  <property name="text">
+                   <string>删除</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>70</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="ngUseBtn">
+                  <property name="text">
+                   <string>备用调入</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>90</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_ng">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QTableWidget" name="ngTable">
+                <column>
+                 <property name="text">
+                  <string>id</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>车型名称</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>条码</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>重量(g)</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>时间</string>
+                 </property>
+                </column>
+                <property name="selectionBehavior">
+                 <enum>QAbstractItemView::SelectRows</enum>
+                </property>
+                <property name="editTriggers">
+                 <set>QAbstractItemView::NoEditTriggers</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
            </item>
            <item>
-            <widget class="QTableWidget" name="ngTable">
-             <column>
-              <property name="text">
-               <string>id</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>车型名称</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>条码</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>重量(g)</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>时间</string>
-              </property>
-             </column>
-             <property name="selectionBehavior">
-              <enum>QAbstractItemView::SelectRows</enum>
+            <widget class="QGroupBox" name="extraTable1Group">
+             <property name="title">
+              <string>第一托当前表格</string>
              </property>
-             <property name="editTriggers">
-              <set>QAbstractItemView::NoEditTriggers</set>
+             <layout class="QVBoxLayout" name="verticalLayout_extra1">
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_extra1Btn">
+                <item>
+                 <widget class="QPushButton" name="completeCurrent1Btn">
+                  <property name="text">
+                   <string>完成</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>70</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_extra1">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QTableWidget" name="extraTable1">
+                <column>
+                 <property name="text">
+                  <string>列1</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>列2</string>
+                 </property>
+                </column>
+                <property name="selectionBehavior">
+                 <enum>QAbstractItemView::SelectRows</enum>
+                </property>
+                <property name="editTriggers">
+                 <set>QAbstractItemView::NoEditTriggers</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="extraTable2Group">
+             <property name="title">
+              <string>第二托当前表格</string>
              </property>
+             <layout class="QVBoxLayout" name="verticalLayout_extra2">
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_extra2Btn">
+                <item>
+                 <widget class="QPushButton" name="completeCurrent2Btn">
+                  <property name="text">
+                   <string>完成</string>
+                  </property>
+                  <property name="maximumWidth">
+                   <number>70</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_extra2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QTableWidget" name="extraTable2">
+                <column>
+                 <property name="text">
+                  <string>列1</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>列2</string>
+                 </property>
+                </column>
+                <property name="selectionBehavior">
+                 <enum>QAbstractItemView::SelectRows</enum>
+                </property>
+                <property name="editTriggers">
+                 <set>QAbstractItemView::NoEditTriggers</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
           </layout>

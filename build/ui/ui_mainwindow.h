@@ -11,6 +11,7 @@
 
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QGroupBox>
@@ -18,7 +19,6 @@
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
-#include <QtWidgets/QListWidget>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPushButton>
@@ -52,6 +52,12 @@ public:
     QSpacerItem *horizontalSpacer_buttons;
     QLabel *label_status;
     QLabel *connectionStatusLabel;
+    QGroupBox *deviationGroup;
+    QFormLayout *formLayout_deviation;
+    QLabel *label_deviationThreshold;
+    QHBoxLayout *horizontalLayout_deviation;
+    QDoubleSpinBox *deviationThresholdSpinBox;
+    QPushButton *saveDeviationBtn;
     QSpacerItem *verticalSpacer_settings;
     QWidget *bindingTab;
     QVBoxLayout *verticalLayout_binding;
@@ -68,7 +74,7 @@ public:
     QSpacerItem *horizontalSpacer_binding;
     QGroupBox *listGroup;
     QVBoxLayout *verticalLayout_list;
-    QListWidget *bindingListWidget;
+    QTableWidget *bindingTable;
     QWidget *weightDataTab;
     QGridLayout *gridLayout_weightData;
     QGroupBox *leftTopGroup;
@@ -81,14 +87,29 @@ public:
     QLabel *slot1_2;
     QLabel *slot1_3;
     QLabel *slot1_4;
-    QGroupBox *rightGroup;
+    QWidget *rightWidget;
     QVBoxLayout *verticalLayout_right;
+    QGroupBox *ngGroupBox;
+    QVBoxLayout *verticalLayout_ng;
     QHBoxLayout *horizontalLayout_ngButtons;
+    QPushButton *ngAddBtn;
     QPushButton *productionSupplementBtn;
     QPushButton *ngDeleteBtn;
     QPushButton *ngUseBtn;
     QSpacerItem *horizontalSpacer_ng;
     QTableWidget *ngTable;
+    QGroupBox *extraTable1Group;
+    QVBoxLayout *verticalLayout_extra1;
+    QHBoxLayout *horizontalLayout_extra1Btn;
+    QPushButton *completeCurrent1Btn;
+    QSpacerItem *horizontalSpacer_extra1;
+    QTableWidget *extraTable1;
+    QGroupBox *extraTable2Group;
+    QVBoxLayout *verticalLayout_extra2;
+    QHBoxLayout *horizontalLayout_extra2Btn;
+    QPushButton *completeCurrent2Btn;
+    QSpacerItem *horizontalSpacer_extra2;
+    QTableWidget *extraTable2;
     QGroupBox *leftBottomGroup;
     QGridLayout *gridLayout_leftBottom;
     QLabel *slot2_5;
@@ -135,6 +156,12 @@ public:
         verticalLayout_settings->setObjectName("verticalLayout_settings");
         connectionGroup = new QGroupBox(settingsTab);
         connectionGroup->setObjectName("connectionGroup");
+        connectionGroup->setMaximumSize(QSize(400, 16777215));
+        QSizePolicy sizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(connectionGroup->sizePolicy().hasHeightForWidth());
+        connectionGroup->setSizePolicy(sizePolicy);
         formLayout_connection = new QFormLayout(connectionGroup);
         formLayout_connection->setObjectName("formLayout_connection");
         label_serverAddress = new QLabel(connectionGroup);
@@ -194,6 +221,41 @@ public:
 
 
         verticalLayout_settings->addWidget(connectionGroup);
+
+        deviationGroup = new QGroupBox(settingsTab);
+        deviationGroup->setObjectName("deviationGroup");
+        deviationGroup->setMaximumSize(QSize(400, 16777215));
+        sizePolicy.setHeightForWidth(deviationGroup->sizePolicy().hasHeightForWidth());
+        deviationGroup->setSizePolicy(sizePolicy);
+        formLayout_deviation = new QFormLayout(deviationGroup);
+        formLayout_deviation->setObjectName("formLayout_deviation");
+        label_deviationThreshold = new QLabel(deviationGroup);
+        label_deviationThreshold->setObjectName("label_deviationThreshold");
+
+        formLayout_deviation->setWidget(0, QFormLayout::LabelRole, label_deviationThreshold);
+
+        horizontalLayout_deviation = new QHBoxLayout();
+        horizontalLayout_deviation->setObjectName("horizontalLayout_deviation");
+        deviationThresholdSpinBox = new QDoubleSpinBox(deviationGroup);
+        deviationThresholdSpinBox->setObjectName("deviationThresholdSpinBox");
+        deviationThresholdSpinBox->setMinimum(0.100000000000000);
+        deviationThresholdSpinBox->setMaximum(9999.000000000000000);
+        deviationThresholdSpinBox->setSingleStep(1.000000000000000);
+        deviationThresholdSpinBox->setDecimals(1);
+        deviationThresholdSpinBox->setValue(60.000000000000000);
+
+        horizontalLayout_deviation->addWidget(deviationThresholdSpinBox);
+
+        saveDeviationBtn = new QPushButton(deviationGroup);
+        saveDeviationBtn->setObjectName("saveDeviationBtn");
+
+        horizontalLayout_deviation->addWidget(saveDeviationBtn);
+
+
+        formLayout_deviation->setLayout(0, QFormLayout::FieldRole, horizontalLayout_deviation);
+
+
+        verticalLayout_settings->addWidget(deviationGroup);
 
         verticalSpacer_settings = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
 
@@ -259,10 +321,18 @@ public:
         listGroup->setObjectName("listGroup");
         verticalLayout_list = new QVBoxLayout(listGroup);
         verticalLayout_list->setObjectName("verticalLayout_list");
-        bindingListWidget = new QListWidget(listGroup);
-        bindingListWidget->setObjectName("bindingListWidget");
+        bindingTable = new QTableWidget(listGroup);
+        if (bindingTable->columnCount() < 2)
+            bindingTable->setColumnCount(2);
+        QTableWidgetItem *__qtablewidgetitem = new QTableWidgetItem();
+        bindingTable->setHorizontalHeaderItem(0, __qtablewidgetitem);
+        QTableWidgetItem *__qtablewidgetitem1 = new QTableWidgetItem();
+        bindingTable->setHorizontalHeaderItem(1, __qtablewidgetitem1);
+        bindingTable->setObjectName("bindingTable");
+        bindingTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        bindingTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-        verticalLayout_list->addWidget(bindingListWidget);
+        verticalLayout_list->addWidget(bindingTable);
 
 
         verticalLayout_binding->addWidget(listGroup);
@@ -335,25 +405,36 @@ public:
 
         gridLayout_weightData->addWidget(leftTopGroup, 0, 0, 1, 1);
 
-        rightGroup = new QGroupBox(weightDataTab);
-        rightGroup->setObjectName("rightGroup");
-        verticalLayout_right = new QVBoxLayout(rightGroup);
+        rightWidget = new QWidget(weightDataTab);
+        rightWidget->setObjectName("rightWidget");
+        verticalLayout_right = new QVBoxLayout(rightWidget);
         verticalLayout_right->setObjectName("verticalLayout_right");
+        verticalLayout_right->setContentsMargins(0, 0, 0, 0);
+        ngGroupBox = new QGroupBox(rightWidget);
+        ngGroupBox->setObjectName("ngGroupBox");
+        verticalLayout_ng = new QVBoxLayout(ngGroupBox);
+        verticalLayout_ng->setObjectName("verticalLayout_ng");
         horizontalLayout_ngButtons = new QHBoxLayout();
         horizontalLayout_ngButtons->setObjectName("horizontalLayout_ngButtons");
-        productionSupplementBtn = new QPushButton(rightGroup);
+        ngAddBtn = new QPushButton(ngGroupBox);
+        ngAddBtn->setObjectName("ngAddBtn");
+        ngAddBtn->setMaximumWidth(70);
+
+        horizontalLayout_ngButtons->addWidget(ngAddBtn);
+
+        productionSupplementBtn = new QPushButton(ngGroupBox);
         productionSupplementBtn->setObjectName("productionSupplementBtn");
         productionSupplementBtn->setMaximumWidth(90);
 
         horizontalLayout_ngButtons->addWidget(productionSupplementBtn);
 
-        ngDeleteBtn = new QPushButton(rightGroup);
+        ngDeleteBtn = new QPushButton(ngGroupBox);
         ngDeleteBtn->setObjectName("ngDeleteBtn");
         ngDeleteBtn->setMaximumWidth(70);
 
         horizontalLayout_ngButtons->addWidget(ngDeleteBtn);
 
-        ngUseBtn = new QPushButton(rightGroup);
+        ngUseBtn = new QPushButton(ngGroupBox);
         ngUseBtn->setObjectName("ngUseBtn");
         ngUseBtn->setMaximumWidth(90);
 
@@ -364,29 +445,102 @@ public:
         horizontalLayout_ngButtons->addItem(horizontalSpacer_ng);
 
 
-        verticalLayout_right->addLayout(horizontalLayout_ngButtons);
+        verticalLayout_ng->addLayout(horizontalLayout_ngButtons);
 
-        ngTable = new QTableWidget(rightGroup);
+        ngTable = new QTableWidget(ngGroupBox);
         if (ngTable->columnCount() < 5)
             ngTable->setColumnCount(5);
-        QTableWidgetItem *__qtablewidgetitem = new QTableWidgetItem();
-        ngTable->setHorizontalHeaderItem(0, __qtablewidgetitem);
-        QTableWidgetItem *__qtablewidgetitem1 = new QTableWidgetItem();
-        ngTable->setHorizontalHeaderItem(1, __qtablewidgetitem1);
         QTableWidgetItem *__qtablewidgetitem2 = new QTableWidgetItem();
-        ngTable->setHorizontalHeaderItem(2, __qtablewidgetitem2);
+        ngTable->setHorizontalHeaderItem(0, __qtablewidgetitem2);
         QTableWidgetItem *__qtablewidgetitem3 = new QTableWidgetItem();
-        ngTable->setHorizontalHeaderItem(3, __qtablewidgetitem3);
+        ngTable->setHorizontalHeaderItem(1, __qtablewidgetitem3);
         QTableWidgetItem *__qtablewidgetitem4 = new QTableWidgetItem();
-        ngTable->setHorizontalHeaderItem(4, __qtablewidgetitem4);
+        ngTable->setHorizontalHeaderItem(2, __qtablewidgetitem4);
+        QTableWidgetItem *__qtablewidgetitem5 = new QTableWidgetItem();
+        ngTable->setHorizontalHeaderItem(3, __qtablewidgetitem5);
+        QTableWidgetItem *__qtablewidgetitem6 = new QTableWidgetItem();
+        ngTable->setHorizontalHeaderItem(4, __qtablewidgetitem6);
         ngTable->setObjectName("ngTable");
         ngTable->setSelectionBehavior(QAbstractItemView::SelectRows);
         ngTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-        verticalLayout_right->addWidget(ngTable);
+        verticalLayout_ng->addWidget(ngTable);
 
 
-        gridLayout_weightData->addWidget(rightGroup, 0, 1, 2, 1);
+        verticalLayout_right->addWidget(ngGroupBox);
+
+        extraTable1Group = new QGroupBox(rightWidget);
+        extraTable1Group->setObjectName("extraTable1Group");
+        verticalLayout_extra1 = new QVBoxLayout(extraTable1Group);
+        verticalLayout_extra1->setObjectName("verticalLayout_extra1");
+        horizontalLayout_extra1Btn = new QHBoxLayout();
+        horizontalLayout_extra1Btn->setObjectName("horizontalLayout_extra1Btn");
+        completeCurrent1Btn = new QPushButton(extraTable1Group);
+        completeCurrent1Btn->setObjectName("completeCurrent1Btn");
+        completeCurrent1Btn->setMaximumWidth(70);
+
+        horizontalLayout_extra1Btn->addWidget(completeCurrent1Btn);
+
+        horizontalSpacer_extra1 = new QSpacerItem(40, 20, QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Minimum);
+
+        horizontalLayout_extra1Btn->addItem(horizontalSpacer_extra1);
+
+
+        verticalLayout_extra1->addLayout(horizontalLayout_extra1Btn);
+
+        extraTable1 = new QTableWidget(extraTable1Group);
+        if (extraTable1->columnCount() < 2)
+            extraTable1->setColumnCount(2);
+        QTableWidgetItem *__qtablewidgetitem7 = new QTableWidgetItem();
+        extraTable1->setHorizontalHeaderItem(0, __qtablewidgetitem7);
+        QTableWidgetItem *__qtablewidgetitem8 = new QTableWidgetItem();
+        extraTable1->setHorizontalHeaderItem(1, __qtablewidgetitem8);
+        extraTable1->setObjectName("extraTable1");
+        extraTable1->setSelectionBehavior(QAbstractItemView::SelectRows);
+        extraTable1->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+        verticalLayout_extra1->addWidget(extraTable1);
+
+
+        verticalLayout_right->addWidget(extraTable1Group);
+
+        extraTable2Group = new QGroupBox(rightWidget);
+        extraTable2Group->setObjectName("extraTable2Group");
+        verticalLayout_extra2 = new QVBoxLayout(extraTable2Group);
+        verticalLayout_extra2->setObjectName("verticalLayout_extra2");
+        horizontalLayout_extra2Btn = new QHBoxLayout();
+        horizontalLayout_extra2Btn->setObjectName("horizontalLayout_extra2Btn");
+        completeCurrent2Btn = new QPushButton(extraTable2Group);
+        completeCurrent2Btn->setObjectName("completeCurrent2Btn");
+        completeCurrent2Btn->setMaximumWidth(70);
+
+        horizontalLayout_extra2Btn->addWidget(completeCurrent2Btn);
+
+        horizontalSpacer_extra2 = new QSpacerItem(40, 20, QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Minimum);
+
+        horizontalLayout_extra2Btn->addItem(horizontalSpacer_extra2);
+
+
+        verticalLayout_extra2->addLayout(horizontalLayout_extra2Btn);
+
+        extraTable2 = new QTableWidget(extraTable2Group);
+        if (extraTable2->columnCount() < 2)
+            extraTable2->setColumnCount(2);
+        QTableWidgetItem *__qtablewidgetitem9 = new QTableWidgetItem();
+        extraTable2->setHorizontalHeaderItem(0, __qtablewidgetitem9);
+        QTableWidgetItem *__qtablewidgetitem10 = new QTableWidgetItem();
+        extraTable2->setHorizontalHeaderItem(1, __qtablewidgetitem10);
+        extraTable2->setObjectName("extraTable2");
+        extraTable2->setSelectionBehavior(QAbstractItemView::SelectRows);
+        extraTable2->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+        verticalLayout_extra2->addWidget(extraTable2);
+
+
+        verticalLayout_right->addWidget(extraTable2Group);
+
+
+        gridLayout_weightData->addWidget(rightWidget, 0, 1, 2, 1);
 
         leftBottomGroup = new QGroupBox(weightDataTab);
         leftBottomGroup->setObjectName("leftBottomGroup");
@@ -463,42 +617,42 @@ public:
         weightTable1 = new QTableWidget(historyLeftGroup);
         if (weightTable1->columnCount() < 18)
             weightTable1->setColumnCount(18);
-        QTableWidgetItem *__qtablewidgetitem5 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(0, __qtablewidgetitem5);
-        QTableWidgetItem *__qtablewidgetitem6 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(1, __qtablewidgetitem6);
-        QTableWidgetItem *__qtablewidgetitem7 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(2, __qtablewidgetitem7);
-        QTableWidgetItem *__qtablewidgetitem8 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(3, __qtablewidgetitem8);
-        QTableWidgetItem *__qtablewidgetitem9 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(4, __qtablewidgetitem9);
-        QTableWidgetItem *__qtablewidgetitem10 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(5, __qtablewidgetitem10);
         QTableWidgetItem *__qtablewidgetitem11 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(6, __qtablewidgetitem11);
+        weightTable1->setHorizontalHeaderItem(0, __qtablewidgetitem11);
         QTableWidgetItem *__qtablewidgetitem12 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(7, __qtablewidgetitem12);
+        weightTable1->setHorizontalHeaderItem(1, __qtablewidgetitem12);
         QTableWidgetItem *__qtablewidgetitem13 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(8, __qtablewidgetitem13);
+        weightTable1->setHorizontalHeaderItem(2, __qtablewidgetitem13);
         QTableWidgetItem *__qtablewidgetitem14 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(9, __qtablewidgetitem14);
+        weightTable1->setHorizontalHeaderItem(3, __qtablewidgetitem14);
         QTableWidgetItem *__qtablewidgetitem15 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(10, __qtablewidgetitem15);
+        weightTable1->setHorizontalHeaderItem(4, __qtablewidgetitem15);
         QTableWidgetItem *__qtablewidgetitem16 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(11, __qtablewidgetitem16);
+        weightTable1->setHorizontalHeaderItem(5, __qtablewidgetitem16);
         QTableWidgetItem *__qtablewidgetitem17 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(12, __qtablewidgetitem17);
+        weightTable1->setHorizontalHeaderItem(6, __qtablewidgetitem17);
         QTableWidgetItem *__qtablewidgetitem18 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(13, __qtablewidgetitem18);
+        weightTable1->setHorizontalHeaderItem(7, __qtablewidgetitem18);
         QTableWidgetItem *__qtablewidgetitem19 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(14, __qtablewidgetitem19);
+        weightTable1->setHorizontalHeaderItem(8, __qtablewidgetitem19);
         QTableWidgetItem *__qtablewidgetitem20 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(15, __qtablewidgetitem20);
+        weightTable1->setHorizontalHeaderItem(9, __qtablewidgetitem20);
         QTableWidgetItem *__qtablewidgetitem21 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(16, __qtablewidgetitem21);
+        weightTable1->setHorizontalHeaderItem(10, __qtablewidgetitem21);
         QTableWidgetItem *__qtablewidgetitem22 = new QTableWidgetItem();
-        weightTable1->setHorizontalHeaderItem(17, __qtablewidgetitem22);
+        weightTable1->setHorizontalHeaderItem(11, __qtablewidgetitem22);
+        QTableWidgetItem *__qtablewidgetitem23 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(12, __qtablewidgetitem23);
+        QTableWidgetItem *__qtablewidgetitem24 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(13, __qtablewidgetitem24);
+        QTableWidgetItem *__qtablewidgetitem25 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(14, __qtablewidgetitem25);
+        QTableWidgetItem *__qtablewidgetitem26 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(15, __qtablewidgetitem26);
+        QTableWidgetItem *__qtablewidgetitem27 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(16, __qtablewidgetitem27);
+        QTableWidgetItem *__qtablewidgetitem28 = new QTableWidgetItem();
+        weightTable1->setHorizontalHeaderItem(17, __qtablewidgetitem28);
         weightTable1->setObjectName("weightTable1");
         weightTable1->setSelectionBehavior(QAbstractItemView::SelectRows);
         weightTable1->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -534,42 +688,42 @@ public:
         weightTable2 = new QTableWidget(historyRightGroup);
         if (weightTable2->columnCount() < 18)
             weightTable2->setColumnCount(18);
-        QTableWidgetItem *__qtablewidgetitem23 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(0, __qtablewidgetitem23);
-        QTableWidgetItem *__qtablewidgetitem24 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(1, __qtablewidgetitem24);
-        QTableWidgetItem *__qtablewidgetitem25 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(2, __qtablewidgetitem25);
-        QTableWidgetItem *__qtablewidgetitem26 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(3, __qtablewidgetitem26);
-        QTableWidgetItem *__qtablewidgetitem27 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(4, __qtablewidgetitem27);
-        QTableWidgetItem *__qtablewidgetitem28 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(5, __qtablewidgetitem28);
         QTableWidgetItem *__qtablewidgetitem29 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(6, __qtablewidgetitem29);
+        weightTable2->setHorizontalHeaderItem(0, __qtablewidgetitem29);
         QTableWidgetItem *__qtablewidgetitem30 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(7, __qtablewidgetitem30);
+        weightTable2->setHorizontalHeaderItem(1, __qtablewidgetitem30);
         QTableWidgetItem *__qtablewidgetitem31 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(8, __qtablewidgetitem31);
+        weightTable2->setHorizontalHeaderItem(2, __qtablewidgetitem31);
         QTableWidgetItem *__qtablewidgetitem32 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(9, __qtablewidgetitem32);
+        weightTable2->setHorizontalHeaderItem(3, __qtablewidgetitem32);
         QTableWidgetItem *__qtablewidgetitem33 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(10, __qtablewidgetitem33);
+        weightTable2->setHorizontalHeaderItem(4, __qtablewidgetitem33);
         QTableWidgetItem *__qtablewidgetitem34 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(11, __qtablewidgetitem34);
+        weightTable2->setHorizontalHeaderItem(5, __qtablewidgetitem34);
         QTableWidgetItem *__qtablewidgetitem35 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(12, __qtablewidgetitem35);
+        weightTable2->setHorizontalHeaderItem(6, __qtablewidgetitem35);
         QTableWidgetItem *__qtablewidgetitem36 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(13, __qtablewidgetitem36);
+        weightTable2->setHorizontalHeaderItem(7, __qtablewidgetitem36);
         QTableWidgetItem *__qtablewidgetitem37 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(14, __qtablewidgetitem37);
+        weightTable2->setHorizontalHeaderItem(8, __qtablewidgetitem37);
         QTableWidgetItem *__qtablewidgetitem38 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(15, __qtablewidgetitem38);
+        weightTable2->setHorizontalHeaderItem(9, __qtablewidgetitem38);
         QTableWidgetItem *__qtablewidgetitem39 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(16, __qtablewidgetitem39);
+        weightTable2->setHorizontalHeaderItem(10, __qtablewidgetitem39);
         QTableWidgetItem *__qtablewidgetitem40 = new QTableWidgetItem();
-        weightTable2->setHorizontalHeaderItem(17, __qtablewidgetitem40);
+        weightTable2->setHorizontalHeaderItem(11, __qtablewidgetitem40);
+        QTableWidgetItem *__qtablewidgetitem41 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(12, __qtablewidgetitem41);
+        QTableWidgetItem *__qtablewidgetitem42 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(13, __qtablewidgetitem42);
+        QTableWidgetItem *__qtablewidgetitem43 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(14, __qtablewidgetitem43);
+        QTableWidgetItem *__qtablewidgetitem44 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(15, __qtablewidgetitem44);
+        QTableWidgetItem *__qtablewidgetitem45 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(16, __qtablewidgetitem45);
+        QTableWidgetItem *__qtablewidgetitem46 = new QTableWidgetItem();
+        weightTable2->setHorizontalHeaderItem(17, __qtablewidgetitem46);
         weightTable2->setObjectName("weightTable2");
         weightTable2->setSelectionBehavior(QAbstractItemView::SelectRows);
         weightTable2->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -635,6 +789,13 @@ public:
         label_status->setText(QCoreApplication::translate("MainWindow", "\350\277\236\346\216\245\347\212\266\346\200\201:", nullptr));
         connectionStatusLabel->setText(QCoreApplication::translate("MainWindow", "\346\234\252\350\277\236\346\216\245", nullptr));
         connectionStatusLabel->setStyleSheet(QCoreApplication::translate("MainWindow", "color: red; font-weight: bold;", nullptr));
+        deviationGroup->setTitle(QCoreApplication::translate("MainWindow", "\345\201\217\345\267\256\346\257\224\350\276\203\345\217\202\346\225\260", nullptr));
+        label_deviationThreshold->setText(QCoreApplication::translate("MainWindow", "\350\266\205\350\277\207\351\230\210\345\200\274(g):", nullptr));
+        deviationThresholdSpinBox->setSuffix(QCoreApplication::translate("MainWindow", " g", nullptr));
+#if QT_CONFIG(tooltip)
+        deviationThresholdSpinBox->setToolTip(QCoreApplication::translate("MainWindow", "\344\273\273\346\204\217\344\270\244\344\270\252\347\211\251\345\223\201\351\207\215\351\207\217\345\267\256\350\266\205\350\277\207\346\255\244\345\200\274\346\227\266\346\240\207\347\272\242", nullptr));
+#endif // QT_CONFIG(tooltip)
+        saveDeviationBtn->setText(QCoreApplication::translate("MainWindow", "\344\277\235\345\255\230", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(settingsTab), QCoreApplication::translate("MainWindow", "\347\263\273\347\273\237\350\256\276\347\275\256", nullptr));
         inputGroup->setTitle(QCoreApplication::translate("MainWindow", "\346\267\273\345\212\240\347\273\221\345\256\232", nullptr));
         label_command->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\344\273\243\347\240\201:", nullptr));
@@ -645,6 +806,10 @@ public:
         addBindingBtn->setText(QCoreApplication::translate("MainWindow", "\346\267\273\345\212\240\347\273\221\345\256\232", nullptr));
         removeBindingBtn->setText(QCoreApplication::translate("MainWindow", "\345\210\240\351\231\244\351\200\211\344\270\255", nullptr));
         listGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\273\221\345\256\232\345\210\227\350\241\250", nullptr));
+        QTableWidgetItem *___qtablewidgetitem = bindingTable->horizontalHeaderItem(0);
+        ___qtablewidgetitem->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\344\273\243\347\240\201", nullptr));
+        QTableWidgetItem *___qtablewidgetitem1 = bindingTable->horizontalHeaderItem(1);
+        ___qtablewidgetitem1->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(bindingTab), QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\347\273\221\345\256\232", nullptr));
         leftTopGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\270\200\346\211\230\345\217\257\350\247\206\345\214\226", nullptr));
         slot1_5->setText(QString());
@@ -655,20 +820,33 @@ public:
         slot1_2->setText(QString());
         slot1_3->setText(QString());
         slot1_4->setText(QString());
-        rightGroup->setTitle(QCoreApplication::translate("MainWindow", "NG\345\223\201\350\241\250\346\240\274", nullptr));
+        ngGroupBox->setTitle(QCoreApplication::translate("MainWindow", "NG\345\223\201\350\241\250\346\240\274", nullptr));
+        ngAddBtn->setText(QCoreApplication::translate("MainWindow", "\346\267\273\345\212\240", nullptr));
         productionSupplementBtn->setText(QCoreApplication::translate("MainWindow", "\347\224\237\344\272\247\350\241\245\345\205\205", nullptr));
         ngDeleteBtn->setText(QCoreApplication::translate("MainWindow", "\345\210\240\351\231\244", nullptr));
         ngUseBtn->setText(QCoreApplication::translate("MainWindow", "\345\244\207\347\224\250\350\260\203\345\205\245", nullptr));
-        QTableWidgetItem *___qtablewidgetitem = ngTable->horizontalHeaderItem(0);
-        ___qtablewidgetitem->setText(QCoreApplication::translate("MainWindow", "id", nullptr));
-        QTableWidgetItem *___qtablewidgetitem1 = ngTable->horizontalHeaderItem(1);
-        ___qtablewidgetitem1->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
-        QTableWidgetItem *___qtablewidgetitem2 = ngTable->horizontalHeaderItem(2);
-        ___qtablewidgetitem2->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\201", nullptr));
-        QTableWidgetItem *___qtablewidgetitem3 = ngTable->horizontalHeaderItem(3);
-        ___qtablewidgetitem3->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\217(g)", nullptr));
-        QTableWidgetItem *___qtablewidgetitem4 = ngTable->horizontalHeaderItem(4);
-        ___qtablewidgetitem4->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
+        QTableWidgetItem *___qtablewidgetitem2 = ngTable->horizontalHeaderItem(0);
+        ___qtablewidgetitem2->setText(QCoreApplication::translate("MainWindow", "id", nullptr));
+        QTableWidgetItem *___qtablewidgetitem3 = ngTable->horizontalHeaderItem(1);
+        ___qtablewidgetitem3->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
+        QTableWidgetItem *___qtablewidgetitem4 = ngTable->horizontalHeaderItem(2);
+        ___qtablewidgetitem4->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\201", nullptr));
+        QTableWidgetItem *___qtablewidgetitem5 = ngTable->horizontalHeaderItem(3);
+        ___qtablewidgetitem5->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\217(g)", nullptr));
+        QTableWidgetItem *___qtablewidgetitem6 = ngTable->horizontalHeaderItem(4);
+        ___qtablewidgetitem6->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
+        extraTable1Group->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\270\200\346\211\230\345\275\223\345\211\215\350\241\250\346\240\274", nullptr));
+        completeCurrent1Btn->setText(QCoreApplication::translate("MainWindow", "\345\256\214\346\210\220", nullptr));
+        QTableWidgetItem *___qtablewidgetitem7 = extraTable1->horizontalHeaderItem(0);
+        ___qtablewidgetitem7->setText(QCoreApplication::translate("MainWindow", "\345\210\2271", nullptr));
+        QTableWidgetItem *___qtablewidgetitem8 = extraTable1->horizontalHeaderItem(1);
+        ___qtablewidgetitem8->setText(QCoreApplication::translate("MainWindow", "\345\210\2272", nullptr));
+        extraTable2Group->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\272\214\346\211\230\345\275\223\345\211\215\350\241\250\346\240\274", nullptr));
+        completeCurrent2Btn->setText(QCoreApplication::translate("MainWindow", "\345\256\214\346\210\220", nullptr));
+        QTableWidgetItem *___qtablewidgetitem9 = extraTable2->horizontalHeaderItem(0);
+        ___qtablewidgetitem9->setText(QCoreApplication::translate("MainWindow", "\345\210\2271", nullptr));
+        QTableWidgetItem *___qtablewidgetitem10 = extraTable2->horizontalHeaderItem(1);
+        ___qtablewidgetitem10->setText(QCoreApplication::translate("MainWindow", "\345\210\2272", nullptr));
         leftBottomGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\272\214\346\211\230\345\217\257\350\247\206\345\214\226", nullptr));
         slot2_5->setText(QString());
         slot2_6->setText(QString());
@@ -680,81 +858,81 @@ public:
         slot2_4->setText(QString());
         tabWidget->setTabText(tabWidget->indexOf(weightDataTab), QCoreApplication::translate("MainWindow", "\347\247\260\351\207\215\346\225\260\346\215\256", nullptr));
         historyLeftGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\270\200\346\211\230\347\247\260\351\207\215\350\241\250\346\240\274", nullptr));
-        QTableWidgetItem *___qtablewidgetitem5 = weightTable1->horizontalHeaderItem(0);
-        ___qtablewidgetitem5->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
-        QTableWidgetItem *___qtablewidgetitem6 = weightTable1->horizontalHeaderItem(1);
-        ___qtablewidgetitem6->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2171", nullptr));
-        QTableWidgetItem *___qtablewidgetitem7 = weightTable1->horizontalHeaderItem(2);
-        ___qtablewidgetitem7->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2011", nullptr));
-        QTableWidgetItem *___qtablewidgetitem8 = weightTable1->horizontalHeaderItem(3);
-        ___qtablewidgetitem8->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2172", nullptr));
-        QTableWidgetItem *___qtablewidgetitem9 = weightTable1->horizontalHeaderItem(4);
-        ___qtablewidgetitem9->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2012", nullptr));
-        QTableWidgetItem *___qtablewidgetitem10 = weightTable1->horizontalHeaderItem(5);
-        ___qtablewidgetitem10->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2173", nullptr));
-        QTableWidgetItem *___qtablewidgetitem11 = weightTable1->horizontalHeaderItem(6);
-        ___qtablewidgetitem11->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2013", nullptr));
-        QTableWidgetItem *___qtablewidgetitem12 = weightTable1->horizontalHeaderItem(7);
-        ___qtablewidgetitem12->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2174", nullptr));
-        QTableWidgetItem *___qtablewidgetitem13 = weightTable1->horizontalHeaderItem(8);
-        ___qtablewidgetitem13->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2014", nullptr));
-        QTableWidgetItem *___qtablewidgetitem14 = weightTable1->horizontalHeaderItem(9);
-        ___qtablewidgetitem14->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2175", nullptr));
-        QTableWidgetItem *___qtablewidgetitem15 = weightTable1->horizontalHeaderItem(10);
-        ___qtablewidgetitem15->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2015", nullptr));
-        QTableWidgetItem *___qtablewidgetitem16 = weightTable1->horizontalHeaderItem(11);
-        ___qtablewidgetitem16->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2176", nullptr));
-        QTableWidgetItem *___qtablewidgetitem17 = weightTable1->horizontalHeaderItem(12);
-        ___qtablewidgetitem17->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2016", nullptr));
-        QTableWidgetItem *___qtablewidgetitem18 = weightTable1->horizontalHeaderItem(13);
-        ___qtablewidgetitem18->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2177", nullptr));
-        QTableWidgetItem *___qtablewidgetitem19 = weightTable1->horizontalHeaderItem(14);
-        ___qtablewidgetitem19->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2017", nullptr));
-        QTableWidgetItem *___qtablewidgetitem20 = weightTable1->horizontalHeaderItem(15);
-        ___qtablewidgetitem20->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2178", nullptr));
-        QTableWidgetItem *___qtablewidgetitem21 = weightTable1->horizontalHeaderItem(16);
-        ___qtablewidgetitem21->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2018", nullptr));
-        QTableWidgetItem *___qtablewidgetitem22 = weightTable1->horizontalHeaderItem(17);
-        ___qtablewidgetitem22->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
+        QTableWidgetItem *___qtablewidgetitem11 = weightTable1->horizontalHeaderItem(0);
+        ___qtablewidgetitem11->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
+        QTableWidgetItem *___qtablewidgetitem12 = weightTable1->horizontalHeaderItem(1);
+        ___qtablewidgetitem12->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2171", nullptr));
+        QTableWidgetItem *___qtablewidgetitem13 = weightTable1->horizontalHeaderItem(2);
+        ___qtablewidgetitem13->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2011", nullptr));
+        QTableWidgetItem *___qtablewidgetitem14 = weightTable1->horizontalHeaderItem(3);
+        ___qtablewidgetitem14->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2172", nullptr));
+        QTableWidgetItem *___qtablewidgetitem15 = weightTable1->horizontalHeaderItem(4);
+        ___qtablewidgetitem15->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2012", nullptr));
+        QTableWidgetItem *___qtablewidgetitem16 = weightTable1->horizontalHeaderItem(5);
+        ___qtablewidgetitem16->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2173", nullptr));
+        QTableWidgetItem *___qtablewidgetitem17 = weightTable1->horizontalHeaderItem(6);
+        ___qtablewidgetitem17->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2013", nullptr));
+        QTableWidgetItem *___qtablewidgetitem18 = weightTable1->horizontalHeaderItem(7);
+        ___qtablewidgetitem18->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2174", nullptr));
+        QTableWidgetItem *___qtablewidgetitem19 = weightTable1->horizontalHeaderItem(8);
+        ___qtablewidgetitem19->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2014", nullptr));
+        QTableWidgetItem *___qtablewidgetitem20 = weightTable1->horizontalHeaderItem(9);
+        ___qtablewidgetitem20->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2175", nullptr));
+        QTableWidgetItem *___qtablewidgetitem21 = weightTable1->horizontalHeaderItem(10);
+        ___qtablewidgetitem21->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2015", nullptr));
+        QTableWidgetItem *___qtablewidgetitem22 = weightTable1->horizontalHeaderItem(11);
+        ___qtablewidgetitem22->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2176", nullptr));
+        QTableWidgetItem *___qtablewidgetitem23 = weightTable1->horizontalHeaderItem(12);
+        ___qtablewidgetitem23->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2016", nullptr));
+        QTableWidgetItem *___qtablewidgetitem24 = weightTable1->horizontalHeaderItem(13);
+        ___qtablewidgetitem24->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2177", nullptr));
+        QTableWidgetItem *___qtablewidgetitem25 = weightTable1->horizontalHeaderItem(14);
+        ___qtablewidgetitem25->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2017", nullptr));
+        QTableWidgetItem *___qtablewidgetitem26 = weightTable1->horizontalHeaderItem(15);
+        ___qtablewidgetitem26->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2178", nullptr));
+        QTableWidgetItem *___qtablewidgetitem27 = weightTable1->horizontalHeaderItem(16);
+        ___qtablewidgetitem27->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2018", nullptr));
+        QTableWidgetItem *___qtablewidgetitem28 = weightTable1->horizontalHeaderItem(17);
+        ___qtablewidgetitem28->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
         clearTable1Btn->setText(QCoreApplication::translate("MainWindow", "\346\270\205\347\251\272", nullptr));
         exportTable1Btn->setText(QCoreApplication::translate("MainWindow", "\345\257\274\345\207\272", nullptr));
         historyRightGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\272\214\346\211\230\347\247\260\351\207\215\350\241\250\346\240\274", nullptr));
-        QTableWidgetItem *___qtablewidgetitem23 = weightTable2->horizontalHeaderItem(0);
-        ___qtablewidgetitem23->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
-        QTableWidgetItem *___qtablewidgetitem24 = weightTable2->horizontalHeaderItem(1);
-        ___qtablewidgetitem24->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2171", nullptr));
-        QTableWidgetItem *___qtablewidgetitem25 = weightTable2->horizontalHeaderItem(2);
-        ___qtablewidgetitem25->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2011", nullptr));
-        QTableWidgetItem *___qtablewidgetitem26 = weightTable2->horizontalHeaderItem(3);
-        ___qtablewidgetitem26->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2172", nullptr));
-        QTableWidgetItem *___qtablewidgetitem27 = weightTable2->horizontalHeaderItem(4);
-        ___qtablewidgetitem27->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2012", nullptr));
-        QTableWidgetItem *___qtablewidgetitem28 = weightTable2->horizontalHeaderItem(5);
-        ___qtablewidgetitem28->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2173", nullptr));
-        QTableWidgetItem *___qtablewidgetitem29 = weightTable2->horizontalHeaderItem(6);
-        ___qtablewidgetitem29->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2013", nullptr));
-        QTableWidgetItem *___qtablewidgetitem30 = weightTable2->horizontalHeaderItem(7);
-        ___qtablewidgetitem30->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2174", nullptr));
-        QTableWidgetItem *___qtablewidgetitem31 = weightTable2->horizontalHeaderItem(8);
-        ___qtablewidgetitem31->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2014", nullptr));
-        QTableWidgetItem *___qtablewidgetitem32 = weightTable2->horizontalHeaderItem(9);
-        ___qtablewidgetitem32->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2175", nullptr));
-        QTableWidgetItem *___qtablewidgetitem33 = weightTable2->horizontalHeaderItem(10);
-        ___qtablewidgetitem33->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2015", nullptr));
-        QTableWidgetItem *___qtablewidgetitem34 = weightTable2->horizontalHeaderItem(11);
-        ___qtablewidgetitem34->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2176", nullptr));
-        QTableWidgetItem *___qtablewidgetitem35 = weightTable2->horizontalHeaderItem(12);
-        ___qtablewidgetitem35->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2016", nullptr));
-        QTableWidgetItem *___qtablewidgetitem36 = weightTable2->horizontalHeaderItem(13);
-        ___qtablewidgetitem36->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2177", nullptr));
-        QTableWidgetItem *___qtablewidgetitem37 = weightTable2->horizontalHeaderItem(14);
-        ___qtablewidgetitem37->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2017", nullptr));
-        QTableWidgetItem *___qtablewidgetitem38 = weightTable2->horizontalHeaderItem(15);
-        ___qtablewidgetitem38->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2178", nullptr));
-        QTableWidgetItem *___qtablewidgetitem39 = weightTable2->horizontalHeaderItem(16);
-        ___qtablewidgetitem39->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2018", nullptr));
-        QTableWidgetItem *___qtablewidgetitem40 = weightTable2->horizontalHeaderItem(17);
-        ___qtablewidgetitem40->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
+        QTableWidgetItem *___qtablewidgetitem29 = weightTable2->horizontalHeaderItem(0);
+        ___qtablewidgetitem29->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
+        QTableWidgetItem *___qtablewidgetitem30 = weightTable2->horizontalHeaderItem(1);
+        ___qtablewidgetitem30->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2171", nullptr));
+        QTableWidgetItem *___qtablewidgetitem31 = weightTable2->horizontalHeaderItem(2);
+        ___qtablewidgetitem31->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2011", nullptr));
+        QTableWidgetItem *___qtablewidgetitem32 = weightTable2->horizontalHeaderItem(3);
+        ___qtablewidgetitem32->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2172", nullptr));
+        QTableWidgetItem *___qtablewidgetitem33 = weightTable2->horizontalHeaderItem(4);
+        ___qtablewidgetitem33->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2012", nullptr));
+        QTableWidgetItem *___qtablewidgetitem34 = weightTable2->horizontalHeaderItem(5);
+        ___qtablewidgetitem34->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2173", nullptr));
+        QTableWidgetItem *___qtablewidgetitem35 = weightTable2->horizontalHeaderItem(6);
+        ___qtablewidgetitem35->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2013", nullptr));
+        QTableWidgetItem *___qtablewidgetitem36 = weightTable2->horizontalHeaderItem(7);
+        ___qtablewidgetitem36->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2174", nullptr));
+        QTableWidgetItem *___qtablewidgetitem37 = weightTable2->horizontalHeaderItem(8);
+        ___qtablewidgetitem37->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2014", nullptr));
+        QTableWidgetItem *___qtablewidgetitem38 = weightTable2->horizontalHeaderItem(9);
+        ___qtablewidgetitem38->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2175", nullptr));
+        QTableWidgetItem *___qtablewidgetitem39 = weightTable2->horizontalHeaderItem(10);
+        ___qtablewidgetitem39->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2015", nullptr));
+        QTableWidgetItem *___qtablewidgetitem40 = weightTable2->horizontalHeaderItem(11);
+        ___qtablewidgetitem40->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2176", nullptr));
+        QTableWidgetItem *___qtablewidgetitem41 = weightTable2->horizontalHeaderItem(12);
+        ___qtablewidgetitem41->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2016", nullptr));
+        QTableWidgetItem *___qtablewidgetitem42 = weightTable2->horizontalHeaderItem(13);
+        ___qtablewidgetitem42->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2177", nullptr));
+        QTableWidgetItem *___qtablewidgetitem43 = weightTable2->horizontalHeaderItem(14);
+        ___qtablewidgetitem43->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2017", nullptr));
+        QTableWidgetItem *___qtablewidgetitem44 = weightTable2->horizontalHeaderItem(15);
+        ___qtablewidgetitem44->setText(QCoreApplication::translate("MainWindow", "\351\207\215\351\207\2178", nullptr));
+        QTableWidgetItem *___qtablewidgetitem45 = weightTable2->horizontalHeaderItem(16);
+        ___qtablewidgetitem45->setText(QCoreApplication::translate("MainWindow", "\346\235\241\347\240\2018", nullptr));
+        QTableWidgetItem *___qtablewidgetitem46 = weightTable2->horizontalHeaderItem(17);
+        ___qtablewidgetitem46->setText(QCoreApplication::translate("MainWindow", "\346\227\266\351\227\264", nullptr));
         clearTable2Btn->setText(QCoreApplication::translate("MainWindow", "\346\270\205\347\251\272", nullptr));
         exportTable2Btn->setText(QCoreApplication::translate("MainWindow", "\345\257\274\345\207\272", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(historyTab), QCoreApplication::translate("MainWindow", "\345\216\206\345\217\262\350\256\260\345\275\225", nullptr));
