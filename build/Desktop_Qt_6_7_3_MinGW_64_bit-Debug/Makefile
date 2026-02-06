@@ -255,6 +255,7 @@ Makefile: ../../WeightComparison.pro D:/qt6/6.7.3/mingw_64/mkspecs/win32-g++/qma
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Widgets.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Gui.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Network.prl \
+		D:/qt6/6.7.3/mingw_64/lib/Qt6Sql.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6Core.prl \
 		D:/qt6/6.7.3/mingw_64/lib/Qt6EntryPoint.prl \
 		D:/qt6/6.7.3/mingw_64/mkspecs/features/build_pass.prf
@@ -444,6 +445,7 @@ D:/qt6/6.7.3/mingw_64/mkspecs/features/lex.prf:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Widgets.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Gui.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Network.prl:
+D:/qt6/6.7.3/mingw_64/lib/Qt6Sql.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6Core.prl:
 D:/qt6/6.7.3/mingw_64/lib/Qt6EntryPoint.prl:
 D:/qt6/6.7.3/mingw_64/mkspecs/features/build_pass.prf:

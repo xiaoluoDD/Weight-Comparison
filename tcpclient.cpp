@@ -59,7 +59,7 @@ void TcpClient::sendData(const QByteArray &data)
         emit errorOccurred("未连接到服务器，无法发送数据");
         return;
     }
-    
+
     qint64 bytesWritten = m_socket->write(data);
     if (bytesWritten == -1) {
         emit errorOccurred(QString("发送数据失败: %1").arg(m_socket->errorString()));

@@ -40,6 +40,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_detectionOkTimer->setSingleShot(true);
     connect(m_detectionOkTimer, &QTimer::timeout, this, &MainWindow::onDetectionOkTimerFired);
 
+    // 长按1号槽位5秒清空
+    m_longPressTimer = new QTimer(this);
+    m_longPressTimer->setSingleShot(true);
+    connect(m_longPressTimer, &QTimer::timeout, this, &MainWindow::onLongPressTimerFired);
+
     // 初始化UI设置
     initializeUI();
     
@@ -290,8 +295,18 @@ void MainWindow::onErrorOccurred(const QString &error)
     QMessageBox::critical(this, "连接错误", error);
 }
 
+void MainWindow::sendDataWithLog(const QByteArray &data)
+{
+    QString hexStr = QString::fromLatin1(data.toHex(' ').toUpper());
+    Logger::info(QString("发送指令 [%1 字节]: %2").arg(data.size()).arg(hexStr));
+    m_tcpClient->sendData(data);
+}
+
 void MainWindow::onDataReceived(const QByteArray &data)
 {
+    // 打印接收指令到日志（十六进制，便于排查）
+    QString hexStr = QString::fromLatin1(data.toHex(' ').toUpper());
+    Logger::info(QString("接收指令 [%1 字节]: %2").arg(data.size()).arg(hexStr));
     parseReceivedData(data);
     ui->statusbar->showMessage(QString("收到数据: %1 字节").arg(data.size()), 2000);
 }
@@ -330,8 +345,17 @@ void MainWindow::parseReceivedData(const QByteArray &data)
         m_receiveBuffer.remove(0, PlcProtocol::FullPacketSize);
 
         PlcProtocol::TwoCarPacket twoCar;
-        if (!PlcProtocol::parseTwoCarPacket(packet, twoCar))
+        if (!PlcProtocol::parseTwoCarPacket(packet, twoCar)) {
+            Logger::warning(QString("解析%1字节失败，丢弃首包尝试重同步。首6字节(车1头): %2 %3 %4 %5 %6 %7")
+                .arg(PlcProtocol::FullPacketSize)
+                .arg(quint8(packet[0]), 2, 16, QChar('0'))
+                .arg(quint8(packet[1]), 2, 16, QChar('0'))
+                .arg(quint8(packet[2]), 2, 16, QChar('0'))
+                .arg(quint8(packet[3]), 2, 16, QChar('0'))
+                .arg(quint8(packet[4]), 2, 16, QChar('0'))
+                .arg(quint8(packet[5]), 2, 16, QChar('0')));
             continue;
+        }
 
         // 补充生产：识别 productionMode==2，读取对应托的前N个工件并合并
         bool car1Supplement = (twoCar.car1.productionMode == PlcProtocol::SupplementProduction);
@@ -386,6 +410,12 @@ void MainWindow::parseReceivedData(const QByteArray &data)
                 }
                 if (updated) updateWeightRangeDisplay();
             }
+        } else {
+            // 不满足 car1Valid&&car2Empty 也不满足 car2Valid：记录忽略原因便于排查
+            Logger::info(QString("指令已解析但未处理: 车1 assemblyDone=%1 productionMode=%2, 车2 assemblyDone=%3 productionMode=%4, car2Empty=%5")
+                .arg(twoCar.car1.assemblyDone).arg(twoCar.car1.productionMode)
+                .arg(twoCar.car2.assemblyDone).arg(twoCar.car2.productionMode)
+                .arg(car2Empty ? "是" : "否"));
         }
     }
 }
@@ -641,12 +671,29 @@ void MainWindow::setupSlotDoubleClick()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() == QEvent::MouseButtonDblClick) {
-        QLabel *lb = qobject_cast<QLabel *>(watched);
-        if (lb && m_slotMap.contains(lb)) {
-            QPair<int, int> p = m_slotMap[lb];
+    QLabel *lb = qobject_cast<QLabel *>(watched);
+    if (lb && m_slotMap.contains(lb)) {
+        QPair<int, int> p = m_slotMap[lb];
+        if (event->type() == QEvent::MouseButtonDblClick) {
             onSlotDoubleClicked(p.first, p.second);
             return true;
+        }
+        // 长按1号槽位(slotIndex==0)5秒清空当前托
+        if (p.second == 0) {
+            QMouseEvent *me = nullptr;
+            if (event->type() == QEvent::MouseButtonPress) {
+                me = static_cast<QMouseEvent *>(event);
+                if (me->button() == Qt::LeftButton) {
+                    m_longPressCarIndex = p.first;
+                    m_longPressTimer->start(5000);
+                }
+            } else if (event->type() == QEvent::MouseButtonRelease) {
+                me = static_cast<QMouseEvent *>(event);
+                if (me->button() == Qt::LeftButton) {
+                    m_longPressTimer->stop();
+                    m_longPressCarIndex = 0;
+                }
+            }
         }
     }
     return QMainWindow::eventFilter(watched, event);
@@ -782,7 +829,7 @@ void MainWindow::onProductionSupplementClicked()
     while (barcodes.size() < 8) barcodes.append(QString());
 
     QByteArray packet = PlcProtocol::buildSupplementPacket(trayIndex, vehicleType, supplementQty, weights, barcodes);
-    m_tcpClient->sendData(packet);
+    sendDataWithLog(packet);
 
     m_lastSupplementTrayIndex = trayIndex;
     m_lastSupplementQuantity = supplementQty;
@@ -905,7 +952,7 @@ void MainWindow::onDetectionOkTimerFired()
             w2List.append(w2[i]);
             b2List.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
         }
-        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketBoth(w1List, b1List, m_car1Data.vehicleType, w2List, b2List, m_car2Data.vehicleType));
+        sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1List, b1List, m_car1Data.vehicleType, w2List, b2List, m_car2Data.vehicleType));
         ui->statusbar->showMessage(QStringLiteral("2托检测OK，已发送信号并清空"), 2000);
         Logger::info("2托无超差，已发送检测OK指令（含两托数据）");
         doCompleteAndClearBothTrays();
@@ -918,7 +965,7 @@ void MainWindow::onDetectionOkTimerFired()
                 w1List.append(w1[i]);
                 b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
             }
-            m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
+            sendDataWithLog(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
             m_firstTrayOkSent = true;  // 标记已发，不再重复发送
             ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
             Logger::info("第一托无超差，已发送检测OK指令");
@@ -935,6 +982,17 @@ void MainWindow::onDetectionOkTimerFired()
             updateWeightRangeDisplay();
         }
         // 已发过第一托OK则不做任何事，等待第二托也OK后发送全部
+    }
+}
+
+void MainWindow::onLongPressTimerFired()
+{
+    if (m_longPressCarIndex == 1 || m_longPressCarIndex == 2) {
+        clearCarDataAndVisualization(m_longPressCarIndex);
+        ui->statusbar->showMessage(
+            (m_longPressCarIndex == 1) ? QStringLiteral("已清空第一托") : QStringLiteral("已清空第二托"), 2000);
+        Logger::info(QString("长按1号槽位5秒，已清空第%1托").arg(m_longPressCarIndex));
+        m_longPressCarIndex = 0;
     }
 }
 
@@ -976,7 +1034,7 @@ void MainWindow::onCompleteCurrent2Clicked()
             w2.append((i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0);
             b2.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
         }
-        m_tcpClient->sendData(PlcProtocol::buildDetectionOkPacketBoth(w1, b1, m_car1Data.vehicleType, w2, b2, m_car2Data.vehicleType));
+        sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1, b1, m_car1Data.vehicleType, w2, b2, m_car2Data.vehicleType));
         Logger::info("2托完成，已发送检测OK指令（含两托数据）");
     }
     doCompleteAndClearBothTrays();
@@ -1035,10 +1093,17 @@ void MainWindow::appendToCurrentTable(const WeightData &data, int carIndex)
 {
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
     if (!table) return;
-    int row = table->rowCount();
-    table->insertRow(row);
     QList<double> weights = data.weights();
     QList<QString> barcodes = data.barcodes();
+    int row;
+    if (table->rowCount() > 0) {
+        // 原来可视化/表格已有数据：直接更新最后一行
+        row = table->rowCount() - 1;
+    } else {
+        // 无数据：新增一行
+        row = table->rowCount();
+        table->insertRow(row);
+    }
     int col = 0;
     table->setItem(row, col++, new QTableWidgetItem(data.vehicleModel()));
     for (int j = 0; j < 8; ++j) {

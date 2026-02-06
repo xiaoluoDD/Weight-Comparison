@@ -72,6 +72,7 @@ private slots:
     void onSaveDeviationClicked();
 
     void onDetectionOkTimerFired();
+    void onLongPressTimerFired();  // 长按1号槽位5秒清空
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -86,7 +87,7 @@ private:
     QMap<QString, QString> m_bindingMap;  // 车型代码 -> 车型名称的映射
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
-    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 428 字节再解析
+    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 396 字节再解析
     PlcProtocol::FirstCarData m_car1Data; // 第一托当前数据（用于双击弹窗）
     PlcProtocol::FirstCarData m_car2Data; // 第二托当前数据（用于双击弹窗）
     QMap<QLabel *, QPair<int, int>> m_slotMap;  // QLabel* -> (carIndex, slotIndex)
@@ -97,6 +98,8 @@ private:
     bool m_firstTrayOkSent = false;  // 第一托OK已发送后不再重复发送，只等待发送全部OK
     double m_displayMaxWeight = -1;  // 当前显示的最大重量(g)，-1表示未设置
     double m_displayMinWeight = -1;  // 当前显示的最小重量(g)，-1表示未设置
+    QTimer *m_longPressTimer = nullptr;  // 长按1号槽位5秒清空
+    int m_longPressCarIndex = 0;         // 长按中的托号(1或2)，0表示无
 
     void updateWeightRangeDisplay();  // 更新最大/最小重量显示
 
@@ -128,6 +131,7 @@ private:
     void mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCarData &car, int count);  // 将PLC返回的补充生产前N个工件合并到指定托
     void updateCurrentTableSlot(int carIndex, int slotIndex, const QString &vehicleModel, double weightG, const QString &barcode);  // 备用调入时，同步更新当前表格(克)
     void applyCurrentTableDeviationStyle(int carIndex, int row, const QList<double> &weights);  // 当前表格偏差格显示红色
+    void sendDataWithLog(const QByteArray &data);  // 发送数据并打印到日志（十六进制）
 };
 
 #endif // MAINWINDOW_H
