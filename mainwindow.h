@@ -122,7 +122,7 @@ private:
     void updateCarVisualization(int carIndex, const PlcProtocol::FirstCarData &car);  // 正常生产时更新可视化槽位
     void applySlotDeviationStyle(int carIndex, const QList<double> &weights);  // 根据偏差设置槽位字体颜色
     void refreshAllVisualizationDeviation();  // 每次物品移动后刷新两托的60g偏差判断
-    QString formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const;  // 车型/重量/条码换行显示
+    QString formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const;  // 三行纯文本；由 VisualizationSlotLabel 居中绘制、行左对齐
     void setupSlotDoubleClick();  // 为可视化槽位安装双击事件过滤
     void addNgRecord(const QString &vehicleModel, const QString &barcode, double weightG);  // 添加到NG表格并保存(克)
     void clearCurrentTableSlot(int carIndex, int slotIndex);  // 可视化添加到NG时，同步清空当前表格对应槽位

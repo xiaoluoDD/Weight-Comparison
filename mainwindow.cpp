@@ -121,10 +121,9 @@ void MainWindow::initializeUI()
     setupCurrentTableColumns(ui->extraTable1);
     setupCurrentTableColumns(ui->extraTable2);
     
-    // 设置称重数据标签页的布局拉伸比例
-    // 列拉伸：左列(0)为1，右列(1)为2（左边窄，右边宽）
+    // 称重数据页：左(可视化)、右(NG+当前表) 等宽
     ui->gridLayout_weightData->setColumnStretch(0, 1);
-    ui->gridLayout_weightData->setColumnStretch(1, 2);
+    ui->gridLayout_weightData->setColumnStretch(1, 1);
     // 行拉伸：上下两行各为1
     ui->gridLayout_weightData->setRowStretch(0, 1);
     ui->gridLayout_weightData->setRowStretch(1, 1);
@@ -182,19 +181,21 @@ void MainWindow::initializeUI()
     ui->gridLayout_leftBottom->setRowStretch(2, 1);
     ui->gridLayout_leftBottom->setRowStretch(3, 1);
 
-    // 设置可视化槽位：居中显示、多行文本（车型/重量/条码）
+    // 可视化槽位：自定义 QLabel 绘制「块居中、三行左对齐」；字号与加粗
     QList<QLabel *> slotLabels;
     slotLabels << ui->slot1_1 << ui->slot1_2 << ui->slot1_3 << ui->slot1_4
                << ui->slot1_5 << ui->slot1_6 << ui->slot1_7 << ui->slot1_8
                << ui->slot2_1 << ui->slot2_2 << ui->slot2_3 << ui->slot2_4
                << ui->slot2_5 << ui->slot2_6 << ui->slot2_7 << ui->slot2_8;
     QFont slotFont;
-    slotFont.setPointSize(10);
+    slotFont.setPointSize(13);
     slotFont.setBold(true);
     for (QLabel *lb : slotLabels) {
+        lb->setTextFormat(Qt::PlainText);
         lb->setAlignment(Qt::AlignCenter);
         lb->setFont(slotFont);
-        lb->setWordWrap(true);
+        lb->setWordWrap(false);
+        lb->setContentsMargins(4, 4, 4, 4);
     }
 
     setupSlotDoubleClick();
@@ -480,10 +481,29 @@ WeightData MainWindow::firstCarDataToWeightData(const PlcProtocol::FirstCarData 
 
 QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, const QString &barcode) const
 {
-    QString vm = vehicleModel.isEmpty() ? QStringLiteral("-") : vehicleModel;
-    QString w = QString::number(weightG, 'f', 1);  // 内部统一克(g)
-    QString bc = barcode.isEmpty() ? QStringLiteral("-") : barcode;
-    return QStringLiteral("%1\n%2\n%3").arg(vm).arg(w).arg(bc);
+    const QString bcTrim = barcode.trimmed();
+    if (weightG <= EmptySlotThreshold && bcTrim.isEmpty())
+        return QString();
+
+    QString vm = vehicleModel;
+    if (vm.isEmpty())
+        vm = QStringLiteral("-");
+    else if (vm == QStringLiteral("16V机型"))
+        vm = QStringLiteral("16v");
+    else if (vm == QStringLiteral("12V机型"))
+        vm = QStringLiteral("12v");
+
+    QString wPart;
+    if (weightG <= EmptySlotThreshold)
+        wPart = QStringLiteral("-");
+    else if (qAbs(weightG - qint64(qRound(weightG))) < 0.05)
+        wPart = QString::number(qint64(qRound(weightG))) + QStringLiteral("g");
+    else
+        wPart = QString::number(weightG, 'f', 1) + QStringLiteral("g");
+
+    const QString bc = bcTrim.isEmpty() ? QStringLiteral("-") : barcode;
+
+    return QStringLiteral("机型：%1\n重量：%2\n条码：%3").arg(vm).arg(wPart).arg(bc);
 }
 
 void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCarData &car)
@@ -631,13 +651,13 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
     }
 
-    // 使用应用级默认颜色，避免被之前设置的 styleSheet 影响
-    QColor defaultTextColor = QApplication::palette().color(QPalette::WindowText);
+    // 超差：红色；正常：绿色（便于与红字区分）
+    const QString normalColor = QStringLiteral("#1b8a1b");
     for (int i = 0; i < 8; ++i) {
         if (redSlots.contains(i)) {
             slotLabels[i]->setStyleSheet(QStringLiteral("color: red;"));
         } else {
-            slotLabels[i]->setStyleSheet(QString("color: %1;").arg(defaultTextColor.name()));
+            slotLabels[i]->setStyleSheet(QStringLiteral("color: %1;").arg(normalColor));
         }
     }
 }

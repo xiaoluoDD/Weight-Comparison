@@ -28,6 +28,7 @@
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
+#include "visualizationslotlabel.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -83,14 +84,14 @@ public:
     QLabel *slot1_leftNote2;
     QLabel *slot1_leftNote3;
     QLabel *slot1_leftNote4;
-    QLabel *slot1_5;
-    QLabel *slot1_6;
-    QLabel *slot1_7;
-    QLabel *slot1_8;
-    QLabel *slot1_1;
-    QLabel *slot1_2;
-    QLabel *slot1_3;
-    QLabel *slot1_4;
+    VisualizationSlotLabel *slot1_5;
+    VisualizationSlotLabel *slot1_6;
+    VisualizationSlotLabel *slot1_7;
+    VisualizationSlotLabel *slot1_8;
+    VisualizationSlotLabel *slot1_1;
+    VisualizationSlotLabel *slot1_2;
+    VisualizationSlotLabel *slot1_3;
+    VisualizationSlotLabel *slot1_4;
     QLabel *slot1_rightNote1;
     QLabel *slot1_rightNote2;
     QLabel *slot1_rightNote3;
@@ -126,14 +127,14 @@ public:
     QLabel *slot2_leftNote2;
     QLabel *slot2_leftNote3;
     QLabel *slot2_leftNote4;
-    QLabel *slot2_5;
-    QLabel *slot2_6;
-    QLabel *slot2_7;
-    QLabel *slot2_8;
-    QLabel *slot2_1;
-    QLabel *slot2_2;
-    QLabel *slot2_3;
-    QLabel *slot2_4;
+    VisualizationSlotLabel *slot2_5;
+    VisualizationSlotLabel *slot2_6;
+    VisualizationSlotLabel *slot2_7;
+    VisualizationSlotLabel *slot2_8;
+    VisualizationSlotLabel *slot2_1;
+    VisualizationSlotLabel *slot2_2;
+    VisualizationSlotLabel *slot2_3;
+    VisualizationSlotLabel *slot2_4;
     QLabel *slot2_rightNote1;
     QLabel *slot2_rightNote2;
     QLabel *slot2_rightNote3;
@@ -388,56 +389,56 @@ public:
 
         gridLayout_leftTop->addWidget(slot1_leftNote4, 3, 0, 1, 1);
 
-        slot1_5 = new QLabel(leftTopGroup);
+        slot1_5 = new VisualizationSlotLabel(leftTopGroup);
         slot1_5->setObjectName("slot1_5");
         slot1_5->setFrameShape(QFrame::Box);
         slot1_5->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_5, 0, 1, 1, 1);
 
-        slot1_6 = new QLabel(leftTopGroup);
+        slot1_6 = new VisualizationSlotLabel(leftTopGroup);
         slot1_6->setObjectName("slot1_6");
         slot1_6->setFrameShape(QFrame::Box);
         slot1_6->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_6, 1, 1, 1, 1);
 
-        slot1_7 = new QLabel(leftTopGroup);
+        slot1_7 = new VisualizationSlotLabel(leftTopGroup);
         slot1_7->setObjectName("slot1_7");
         slot1_7->setFrameShape(QFrame::Box);
         slot1_7->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_7, 2, 1, 1, 1);
 
-        slot1_8 = new QLabel(leftTopGroup);
+        slot1_8 = new VisualizationSlotLabel(leftTopGroup);
         slot1_8->setObjectName("slot1_8");
         slot1_8->setFrameShape(QFrame::Box);
         slot1_8->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_8, 3, 1, 1, 1);
 
-        slot1_1 = new QLabel(leftTopGroup);
+        slot1_1 = new VisualizationSlotLabel(leftTopGroup);
         slot1_1->setObjectName("slot1_1");
         slot1_1->setFrameShape(QFrame::Box);
         slot1_1->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_1, 0, 2, 1, 1);
 
-        slot1_2 = new QLabel(leftTopGroup);
+        slot1_2 = new VisualizationSlotLabel(leftTopGroup);
         slot1_2->setObjectName("slot1_2");
         slot1_2->setFrameShape(QFrame::Box);
         slot1_2->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_2, 1, 2, 1, 1);
 
-        slot1_3 = new QLabel(leftTopGroup);
+        slot1_3 = new VisualizationSlotLabel(leftTopGroup);
         slot1_3->setObjectName("slot1_3");
         slot1_3->setFrameShape(QFrame::Box);
         slot1_3->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftTop->addWidget(slot1_3, 2, 2, 1, 1);
 
-        slot1_4 = new QLabel(leftTopGroup);
+        slot1_4 = new VisualizationSlotLabel(leftTopGroup);
         slot1_4->setObjectName("slot1_4");
         slot1_4->setFrameShape(QFrame::Box);
         slot1_4->setFrameShadow(QFrame::Raised);
@@ -646,56 +647,56 @@ public:
 
         gridLayout_leftBottom->addWidget(slot2_leftNote4, 3, 0, 1, 1);
 
-        slot2_5 = new QLabel(leftBottomGroup);
+        slot2_5 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_5->setObjectName("slot2_5");
         slot2_5->setFrameShape(QFrame::Box);
         slot2_5->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_5, 0, 1, 1, 1);
 
-        slot2_6 = new QLabel(leftBottomGroup);
+        slot2_6 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_6->setObjectName("slot2_6");
         slot2_6->setFrameShape(QFrame::Box);
         slot2_6->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_6, 1, 1, 1, 1);
 
-        slot2_7 = new QLabel(leftBottomGroup);
+        slot2_7 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_7->setObjectName("slot2_7");
         slot2_7->setFrameShape(QFrame::Box);
         slot2_7->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_7, 2, 1, 1, 1);
 
-        slot2_8 = new QLabel(leftBottomGroup);
+        slot2_8 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_8->setObjectName("slot2_8");
         slot2_8->setFrameShape(QFrame::Box);
         slot2_8->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_8, 3, 1, 1, 1);
 
-        slot2_1 = new QLabel(leftBottomGroup);
+        slot2_1 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_1->setObjectName("slot2_1");
         slot2_1->setFrameShape(QFrame::Box);
         slot2_1->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_1, 0, 2, 1, 1);
 
-        slot2_2 = new QLabel(leftBottomGroup);
+        slot2_2 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_2->setObjectName("slot2_2");
         slot2_2->setFrameShape(QFrame::Box);
         slot2_2->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_2, 1, 2, 1, 1);
 
-        slot2_3 = new QLabel(leftBottomGroup);
+        slot2_3 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_3->setObjectName("slot2_3");
         slot2_3->setFrameShape(QFrame::Box);
         slot2_3->setFrameShadow(QFrame::Raised);
 
         gridLayout_leftBottom->addWidget(slot2_3, 2, 2, 1, 1);
 
-        slot2_4 = new QLabel(leftBottomGroup);
+        slot2_4 = new VisualizationSlotLabel(leftBottomGroup);
         slot2_4->setObjectName("slot2_4");
         slot2_4->setFrameShape(QFrame::Box);
         slot2_4->setFrameShadow(QFrame::Raised);

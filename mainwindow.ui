@@ -380,7 +380,7 @@
             </widget>
            </item>
            <item row="0" column="1">
-            <widget class="QLabel" name="slot1_5">
+            <widget class="VisualizationSlotLabel" name="slot1_5">
              <property name="text">
               <string/>
              </property>
@@ -393,7 +393,7 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QLabel" name="slot1_6">
+            <widget class="VisualizationSlotLabel" name="slot1_6">
              <property name="text">
               <string/>
              </property>
@@ -406,7 +406,7 @@
             </widget>
            </item>
            <item row="2" column="1">
-            <widget class="QLabel" name="slot1_7">
+            <widget class="VisualizationSlotLabel" name="slot1_7">
              <property name="text">
               <string/>
              </property>
@@ -419,7 +419,7 @@
             </widget>
            </item>
            <item row="3" column="1">
-            <widget class="QLabel" name="slot1_8">
+            <widget class="VisualizationSlotLabel" name="slot1_8">
              <property name="text">
               <string/>
              </property>
@@ -432,7 +432,7 @@
             </widget>
            </item>
            <item row="0" column="2">
-            <widget class="QLabel" name="slot1_1">
+            <widget class="VisualizationSlotLabel" name="slot1_1">
              <property name="text">
               <string/>
              </property>
@@ -445,7 +445,7 @@
             </widget>
            </item>
            <item row="1" column="2">
-            <widget class="QLabel" name="slot1_2">
+            <widget class="VisualizationSlotLabel" name="slot1_2">
              <property name="text">
               <string/>
              </property>
@@ -458,7 +458,7 @@
             </widget>
            </item>
            <item row="2" column="2">
-            <widget class="QLabel" name="slot1_3">
+            <widget class="VisualizationSlotLabel" name="slot1_3">
              <property name="text">
               <string/>
              </property>
@@ -471,7 +471,7 @@
             </widget>
            </item>
            <item row="3" column="2">
-            <widget class="QLabel" name="slot1_4">
+            <widget class="VisualizationSlotLabel" name="slot1_4">
              <property name="text">
               <string/>
              </property>
@@ -803,7 +803,7 @@
             </widget>
            </item>
            <item row="0" column="1">
-            <widget class="QLabel" name="slot2_5">
+            <widget class="VisualizationSlotLabel" name="slot2_5">
              <property name="text">
               <string/>
              </property>
@@ -816,7 +816,7 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QLabel" name="slot2_6">
+            <widget class="VisualizationSlotLabel" name="slot2_6">
              <property name="text">
               <string/>
              </property>
@@ -829,7 +829,7 @@
             </widget>
            </item>
            <item row="2" column="1">
-            <widget class="QLabel" name="slot2_7">
+            <widget class="VisualizationSlotLabel" name="slot2_7">
              <property name="text">
               <string/>
              </property>
@@ -842,7 +842,7 @@
             </widget>
            </item>
            <item row="3" column="1">
-            <widget class="QLabel" name="slot2_8">
+            <widget class="VisualizationSlotLabel" name="slot2_8">
              <property name="text">
               <string/>
              </property>
@@ -855,7 +855,7 @@
             </widget>
            </item>
            <item row="0" column="2">
-            <widget class="QLabel" name="slot2_1">
+            <widget class="VisualizationSlotLabel" name="slot2_1">
              <property name="text">
               <string/>
              </property>
@@ -868,7 +868,7 @@
             </widget>
            </item>
            <item row="1" column="2">
-            <widget class="QLabel" name="slot2_2">
+            <widget class="VisualizationSlotLabel" name="slot2_2">
              <property name="text">
               <string/>
              </property>
@@ -881,7 +881,7 @@
             </widget>
            </item>
            <item row="2" column="2">
-            <widget class="QLabel" name="slot2_3">
+            <widget class="VisualizationSlotLabel" name="slot2_3">
              <property name="text">
               <string/>
              </property>
@@ -894,7 +894,7 @@
             </widget>
            </item>
            <item row="3" column="2">
-            <widget class="QLabel" name="slot2_4">
+            <widget class="VisualizationSlotLabel" name="slot2_4">
              <property name="text">
               <string/>
              </property>
@@ -1254,6 +1254,14 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>VisualizationSlotLabel</class>
+   <extends>QLabel</extends>
+   <header>visualizationslotlabel.h</header>
+   <container>0</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

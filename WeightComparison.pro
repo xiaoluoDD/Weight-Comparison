@@ -8,6 +8,7 @@ TEMPLATE = app
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    visualizationslotlabel.cpp \
     ngadddialog.cpp \
     ngusedialog.cpp \
     supplementdialog.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h \
+    visualizationslotlabel.h \
     ngadddialog.h \
     ngusedialog.h \
     supplementdialog.h \
