@@ -24,6 +24,78 @@
 // 空槽位阈值，重量<=此值视为空，不参与偏差比较
 static const double EmptySlotThreshold = 0.0001;
 
+// 第一/第二托当前表：列1-8 为可视化顺序 右1..右4、左1..左4，对应协议槽位下标
+static const int TrayVisualColOrderSlotIndex[8] = { 4, 5, 6, 7, 0, 1, 2, 3 };
+
+static int trayVisualColForSlotIndex(int slotIndex)
+{
+    for (int c = 0; c < 8; ++c) {
+        if (TrayVisualColOrderSlotIndex[c] == slotIndex)
+            return c + 1;
+    }
+    return 1;
+}
+
+static bool trayCompactCurrentTableHasPayload(QTableWidget *t)
+{
+    if (!t || t->rowCount() < 3 || t->columnCount() < 9)
+        return false;
+    for (int c = 1; c <= 8; ++c) {
+        if (QTableWidgetItem *w = t->item(2, c)) {
+            if (!w->text().trimmed().isEmpty())
+                return true;
+        }
+        if (QTableWidgetItem *b = t->item(1, c)) {
+            if (!b->text().trimmed().isEmpty())
+                return true;
+        }
+    }
+    return false;
+}
+
+static void setupTrayCompactCurrentTableLayout(QTableWidget *t)
+{
+    t->clear();
+    t->setColumnCount(9);
+    t->setRowCount(3);
+    t->horizontalHeader()->setVisible(false);
+    t->verticalHeader()->setVisible(false);
+    t->horizontalHeader()->setStretchLastSection(false);
+    t->setColumnWidth(0, 52);
+    for (int c = 1; c < 9; ++c)
+        t->setColumnWidth(c, 72);
+    auto makeRowTitle = [](const QString &s) {
+        QTableWidgetItem *it = new QTableWidgetItem(s);
+        it->setFlags(Qt::ItemIsEnabled);
+        QFont f = it->font();
+        f.setBold(true);
+        it->setFont(f);
+        return it;
+    };
+    t->setItem(0, 0, makeRowTitle(QStringLiteral("车位")));
+    t->setItem(1, 0, makeRowTitle(QStringLiteral("条码")));
+    t->setItem(2, 0, makeRowTitle(QStringLiteral("重量")));
+}
+
+static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weights,
+                                     const QList<QString> &barcodes)
+{
+    static const QString kPosNames[8] = {
+        QStringLiteral("右1"), QStringLiteral("右2"), QStringLiteral("右3"), QStringLiteral("右4"),
+        QStringLiteral("左1"), QStringLiteral("左2"), QStringLiteral("左3"), QStringLiteral("左4")
+    };
+    for (int c = 0; c < 8; ++c) {
+        int slotIdx = TrayVisualColOrderSlotIndex[c];
+        double wg = (slotIdx < weights.size()) ? weights[slotIdx] : 0.0;
+        QString bc = (slotIdx < barcodes.size()) ? barcodes[slotIdx] : QString();
+        QTableWidgetItem *posItem = new QTableWidgetItem(kPosNames[c]);
+        posItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        t->setItem(0, c + 1, posItem);
+        t->setItem(1, c + 1, new QTableWidgetItem(bc));
+        t->setItem(2, c + 1, new QTableWidgetItem(QString::number(wg, 'f', 1)));
+    }
+}
+
 static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
 
 MainWindow::MainWindow(QWidget *parent)
@@ -117,9 +189,9 @@ void MainWindow::initializeUI()
     // 设置历史记录表格列宽（不拉伸最后一列，设置固定列宽以便一次性显示所有列）
     setupHistoryTableColumns(ui->weightTable1);
     setupHistoryTableColumns(ui->weightTable2);
-    // 第一托/第二托当前表格：与历史表格相同的列结构
-    setupCurrentTableColumns(ui->extraTable1);
-    setupCurrentTableColumns(ui->extraTable2);
+    // 第一托/第二托「当前」表：3×9 紧凑布局（左列车位/条码/重量）
+    setupTray1CurrentTable();
+    setupTray2CurrentTable();
     
     // 称重数据页：左(可视化)、右(NG+当前表) 等宽
     ui->gridLayout_weightData->setColumnStretch(0, 1);
@@ -257,6 +329,44 @@ void MainWindow::setupCurrentTableColumns(QTableWidget *table)
         table->setColumnWidth(2 + i * 2, 75);
     }
     table->setColumnWidth(17, 130);
+}
+
+void MainWindow::setupTray1CurrentTable()
+{
+    setupTrayCompactCurrentTableLayout(ui->extraTable1);
+}
+
+void MainWindow::setupTray2CurrentTable()
+{
+    setupTrayCompactCurrentTableLayout(ui->extraTable2);
+}
+
+void MainWindow::fillTray1CurrentTable(const QString &vehicleModel, const QList<double> &weights,
+                                       const QList<QString> &barcodes, const QDateTime &recordTime)
+{
+    QTableWidget *t = ui->extraTable1;
+    setupTray1CurrentTable();
+    t->setProperty("_tray1VehicleModel", vehicleModel);
+    t->setProperty("_tray1Time", recordTime.toString(QStringLiteral("yyyy-MM-dd hh:mm:ss")));
+    fillTrayCompactDataCells(t, weights, barcodes);
+    QList<double> w8;
+    for (int i = 0; i < 8; ++i)
+        w8.append((i < weights.size()) ? weights[i] : 0.0);
+    applyCurrentTableDeviationStyle(1, 2, w8);
+}
+
+void MainWindow::fillTray2CurrentTable(const QString &vehicleModel, const QList<double> &weights,
+                                       const QList<QString> &barcodes, const QDateTime &recordTime)
+{
+    QTableWidget *t = ui->extraTable2;
+    setupTray2CurrentTable();
+    t->setProperty("_tray2VehicleModel", vehicleModel);
+    t->setProperty("_tray2Time", recordTime.toString(QStringLiteral("yyyy-MM-dd hh:mm:ss")));
+    fillTrayCompactDataCells(t, weights, barcodes);
+    QList<double> w8;
+    for (int i = 0; i < 8; ++i)
+        w8.append((i < weights.size()) ? weights[i] : 0.0);
+    applyCurrentTableDeviationStyle(2, 2, w8);
 }
 
 void MainWindow::setupConnections()
@@ -697,21 +807,43 @@ void MainWindow::refreshAllVisualizationDeviation()
     }
     m_lastCar1HadDeviation = !car1NoDeviation;
 
-    for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
+    if (ui->extraTable1->columnCount() >= 9 && ui->extraTable1->rowCount() >= 3) {
         QList<double> weights;
-        for (int j = 0; j < 8; ++j) {
-            QTableWidgetItem *wItem = ui->extraTable1->item(r, 1 + j * 2);
-            weights.append(wItem ? wItem->text().toDouble() : 0.0);
+        weights.resize(8);
+        for (int c = 0; c < 8; ++c) {
+            const int slotIdx = TrayVisualColOrderSlotIndex[c];
+            QTableWidgetItem *wItem = ui->extraTable1->item(2, c + 1);
+            weights[slotIdx] = wItem ? wItem->text().toDouble() : 0.0;
         }
-        applyCurrentTableDeviationStyle(1, r, weights);
+        applyCurrentTableDeviationStyle(1, 2, weights);
+    } else {
+        for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
+            QList<double> weights;
+            for (int j = 0; j < 8; ++j) {
+                QTableWidgetItem *wItem = ui->extraTable1->item(r, 1 + j * 2);
+                weights.append(wItem ? wItem->text().toDouble() : 0.0);
+            }
+            applyCurrentTableDeviationStyle(1, r, weights);
+        }
     }
-    for (int r = 0; r < ui->extraTable2->rowCount(); ++r) {
+    if (ui->extraTable2->columnCount() >= 9 && ui->extraTable2->rowCount() >= 3) {
         QList<double> weights;
-        for (int j = 0; j < 8; ++j) {
-            QTableWidgetItem *wItem = ui->extraTable2->item(r, 1 + j * 2);
-            weights.append(wItem ? wItem->text().toDouble() : 0.0);
+        weights.resize(8);
+        for (int c = 0; c < 8; ++c) {
+            const int slotIdx = TrayVisualColOrderSlotIndex[c];
+            QTableWidgetItem *wItem = ui->extraTable2->item(2, c + 1);
+            weights[slotIdx] = wItem ? wItem->text().toDouble() : 0.0;
         }
-        applyCurrentTableDeviationStyle(2, r, weights);
+        applyCurrentTableDeviationStyle(2, 2, weights);
+    } else {
+        for (int r = 0; r < ui->extraTable2->rowCount(); ++r) {
+            QList<double> weights;
+            for (int j = 0; j < 8; ++j) {
+                QTableWidgetItem *wItem = ui->extraTable2->item(r, 1 + j * 2);
+                weights.append(wItem ? wItem->text().toDouble() : 0.0);
+            }
+            applyCurrentTableDeviationStyle(2, r, weights);
+        }
     }
 }
 
@@ -964,6 +1096,51 @@ int MainWindow::vehicleModelToType(const QString &model)
 
 WeightData MainWindow::currentTableRowToWeightData(QTableWidget *table, int row)
 {
+    if (table == ui->extraTable1 && trayCompactCurrentTableHasPayload(table)) {
+        WeightData w;
+        w.setVehicleModel(table->property("_tray1VehicleModel").toString());
+        const QString tsStr = table->property("_tray1Time").toString();
+        w.setTimestamp(QDateTime::fromString(tsStr, QStringLiteral("yyyy-MM-dd hh:mm:ss")));
+        QList<double> weights;
+        QList<QString> barcodes;
+        weights.resize(8);
+        barcodes.resize(8);
+        for (int c = 0; c < 8; ++c) {
+            const int slotIdx = TrayVisualColOrderSlotIndex[c];
+            QTableWidgetItem *bIt = table->item(1, c + 1);
+            QTableWidgetItem *wIt = table->item(2, c + 1);
+            barcodes[slotIdx] = bIt ? bIt->text() : QString();
+            weights[slotIdx] = wIt ? wIt->text().toDouble() : 0.0;
+        }
+        w.setWeights(weights);
+        w.setBarcodes(barcodes);
+        return w;
+    }
+    if (table == ui->extraTable2 && trayCompactCurrentTableHasPayload(table)) {
+        WeightData w;
+        w.setVehicleModel(table->property("_tray2VehicleModel").toString());
+        const QString tsStr = table->property("_tray2Time").toString();
+        w.setTimestamp(QDateTime::fromString(tsStr, QStringLiteral("yyyy-MM-dd hh:mm:ss")));
+        QList<double> weights;
+        QList<QString> barcodes;
+        weights.resize(8);
+        barcodes.resize(8);
+        for (int c = 0; c < 8; ++c) {
+            const int slotIdx = TrayVisualColOrderSlotIndex[c];
+            QTableWidgetItem *bIt = table->item(1, c + 1);
+            QTableWidgetItem *wIt = table->item(2, c + 1);
+            barcodes[slotIdx] = bIt ? bIt->text() : QString();
+            weights[slotIdx] = wIt ? wIt->text().toDouble() : 0.0;
+        }
+        w.setWeights(weights);
+        w.setBarcodes(barcodes);
+        return w;
+    }
+    if (table == ui->extraTable1)
+        return WeightData();
+    if (table == ui->extraTable2)
+        return WeightData();
+
     WeightData w;
     QTableWidgetItem *vmItem = table->item(row, 0);
     QTableWidgetItem *timeItem = table->item(row, 17);
@@ -1077,7 +1254,8 @@ void MainWindow::onCompleteCurrent1Clicked()
 
 void MainWindow::onCompleteCurrent2Clicked()
 {
-    int totalRows = ui->extraTable1->rowCount() + ui->extraTable2->rowCount();
+    int totalRows = (trayCompactCurrentTableHasPayload(ui->extraTable1) ? 1 : 0)
+        + (trayCompactCurrentTableHasPayload(ui->extraTable2) ? 1 : 0);
     if (totalRows == 0) {
         QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
         return;
@@ -1101,15 +1279,20 @@ void MainWindow::onCompleteCurrent2Clicked()
 
 void MainWindow::doCompleteAndClearBothTrays()
 {
-    int totalRows = ui->extraTable1->rowCount() + ui->extraTable2->rowCount();
-    for (int r = 0; r < ui->extraTable1->rowCount(); ++r) {
-        WeightData w = currentTableRowToWeightData(ui->extraTable1, r);
+    int totalRows = (trayCompactCurrentTableHasPayload(ui->extraTable1) ? 1 : 0)
+        + (trayCompactCurrentTableHasPayload(ui->extraTable2) ? 1 : 0);
+    if (trayCompactCurrentTableHasPayload(ui->extraTable1)) {
+        WeightData w = currentTableRowToWeightData(ui->extraTable1, 0);
         addWeightData(w, 1);
     }
-    for (int r = 0; r < ui->extraTable2->rowCount(); ++r) {
-        WeightData w = currentTableRowToWeightData(ui->extraTable2, r);
+    if (trayCompactCurrentTableHasPayload(ui->extraTable2)) {
+        WeightData w = currentTableRowToWeightData(ui->extraTable2, 0);
         addWeightData(w, 2);
     }
+    ui->extraTable1->setProperty("_tray1VehicleModel", QVariant());
+    ui->extraTable1->setProperty("_tray1Time", QVariant());
+    ui->extraTable2->setProperty("_tray2VehicleModel", QVariant());
+    ui->extraTable2->setProperty("_tray2Time", QVariant());
     ui->extraTable1->setRowCount(0);
     ui->extraTable2->setRowCount(0);
     QLabel *slots1[] = { ui->slot1_1, ui->slot1_2, ui->slot1_3, ui->slot1_4, ui->slot1_5, ui->slot1_6, ui->slot1_7, ui->slot1_8 };
@@ -1133,6 +1316,26 @@ void MainWindow::doCompleteAndClearBothTrays()
 
 void MainWindow::completeCurrentTable(QTableWidget *table, int tableIndex)
 {
+    if (table == ui->extraTable1 || table == ui->extraTable2) {
+        if (!trayCompactCurrentTableHasPayload(table)) {
+            QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
+            return;
+        }
+        WeightData w = currentTableRowToWeightData(table, 0);
+        addWeightData(w, tableIndex);
+        if (table == ui->extraTable1) {
+            table->setProperty("_tray1VehicleModel", QVariant());
+            table->setProperty("_tray1Time", QVariant());
+        } else {
+            table->setProperty("_tray2VehicleModel", QVariant());
+            table->setProperty("_tray2Time", QVariant());
+        }
+        table->setRowCount(0);
+        ui->statusbar->showMessage(QStringLiteral("已发送到历史表格并保存"), 2000);
+        Logger::info(QString("当前表格%1 完成: 1 条记录已写入历史").arg(tableIndex));
+        return;
+    }
+
     int rowCount = table->rowCount();
     if (rowCount == 0) {
         QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
@@ -1149,29 +1352,17 @@ void MainWindow::completeCurrentTable(QTableWidget *table, int tableIndex)
 
 void MainWindow::appendToCurrentTable(const WeightData &data, int carIndex)
 {
-    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
-    if (!table) return;
     QList<double> weights = data.weights();
     QList<QString> barcodes = data.barcodes();
-    int row;
-    if (table->rowCount() > 0) {
-        // 原来可视化/表格已有数据：直接更新最后一行
-        row = table->rowCount() - 1;
-    } else {
-        // 无数据：新增一行
-        row = table->rowCount();
-        table->insertRow(row);
+
+    if (carIndex == 1) {
+        fillTray1CurrentTable(data.vehicleModel(), weights, barcodes, data.timestamp());
+        return;
     }
-    int col = 0;
-    table->setItem(row, col++, new QTableWidgetItem(data.vehicleModel()));
-    for (int j = 0; j < 8; ++j) {
-        double weightG = (j < weights.size()) ? weights[j] : 0.0;
-        QString barcode = (j < barcodes.size()) ? barcodes[j] : QString();
-        table->setItem(row, col++, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
-        table->setItem(row, col++, new QTableWidgetItem(barcode));
+    if (carIndex == 2) {
+        fillTray2CurrentTable(data.vehicleModel(), weights, barcodes, data.timestamp());
+        return;
     }
-    table->setItem(row, col++, new QTableWidgetItem(data.timestamp().toString("yyyy-MM-dd hh:mm:ss")));
-    applyCurrentTableDeviationStyle(carIndex, row, weights);  // 表格偏差格显示红色
 }
 
 void MainWindow::mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCarData &car, int count)
@@ -1279,28 +1470,20 @@ void MainWindow::mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCa
         slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
     }
 
-    // 更新当前表格：合并到最后一行
-    QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
-    if (table->rowCount() == 0) {
-        table->insertRow(0);
-        table->setItem(0, 0, new QTableWidgetItem(vehicleModel));
-        for (int j = 0; j < 8; ++j) {
-            table->setItem(0, 1 + j * 2, new QTableWidgetItem(QString()));
-            table->setItem(0, 2 + j * 2, new QTableWidgetItem(QString()));
-        }
-        table->setItem(0, 17, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
+    // 更新当前表格
+    if (carIndex == 1) {
+        QDateTime ts = QDateTime::fromString(ui->extraTable1->property("_tray1Time").toString(),
+                                              QStringLiteral("yyyy-MM-dd hh:mm:ss"));
+        if (!ts.isValid())
+            ts = QDateTime::currentDateTime();
+        fillTray1CurrentTable(vehicleModel, target.weights, target.barcodes, ts);
+    } else {
+        QDateTime ts = QDateTime::fromString(ui->extraTable2->property("_tray2Time").toString(),
+                                              QStringLiteral("yyyy-MM-dd hh:mm:ss"));
+        if (!ts.isValid())
+            ts = QDateTime::currentDateTime();
+        fillTray2CurrentTable(vehicleModel, target.weights, target.barcodes, ts);
     }
-    int row = table->rowCount() - 1;
-    QTableWidgetItem *vmItem = table->item(row, 0);
-    if (vmItem && vmItem->text().isEmpty())
-        vmItem->setText(vehicleModel);
-    for (int j = 0; j < 8; ++j) {
-        double w = (j < target.weights.size()) ? target.weights[j] : 0.0;
-        QString bc = (j < target.barcodes.size()) ? target.barcodes[j] : QString();
-        table->setItem(row, 1 + j * 2, new QTableWidgetItem(QString::number(w, 'f', 1)));
-        table->setItem(row, 2 + j * 2, new QTableWidgetItem(bc));
-    }
-    applyCurrentTableDeviationStyle(carIndex, row, target.weights);
     refreshAllVisualizationDeviation();
 }
 
@@ -1326,6 +1509,13 @@ void MainWindow::clearCarDataAndVisualization(int carIndex)
     }
 
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
+    if (carIndex == 1) {
+        table->setProperty("_tray1VehicleModel", QVariant());
+        table->setProperty("_tray1Time", QVariant());
+    } else {
+        table->setProperty("_tray2VehicleModel", QVariant());
+        table->setProperty("_tray2Time", QVariant());
+    }
     table->setRowCount(0);
 
     refreshAllVisualizationDeviation();
@@ -1334,46 +1524,138 @@ void MainWindow::clearCarDataAndVisualization(int carIndex)
 void MainWindow::clearCurrentTableSlot(int carIndex, int slotIndex)
 {
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
-    if (!table || table->rowCount() == 0) return;
-    int row = table->rowCount() - 1;
-    int weightCol = 1 + slotIndex * 2;
-    int barcodeCol = 2 + slotIndex * 2;
-    QTableWidgetItem *wItem = table->item(row, weightCol);
-    QTableWidgetItem *bItem = table->item(row, barcodeCol);
-    if (wItem) { wItem->setText(QString()); wItem->setData(Qt::ForegroundRole, QVariant()); }
-    if (bItem) { bItem->setText(QString()); bItem->setData(Qt::ForegroundRole, QVariant()); }
+    if (!table) return;
+    if (carIndex == 1) {
+        if (table->columnCount() < 9 || table->rowCount() < 3)
+            return;
+        const int col = trayVisualColForSlotIndex(slotIndex);
+        QTableWidgetItem *wItem = table->item(2, col);
+        QTableWidgetItem *bItem = table->item(1, col);
+        if (wItem) {
+            wItem->setText(QString());
+            wItem->setData(Qt::ForegroundRole, QVariant());
+        }
+        if (bItem) {
+            bItem->setText(QString());
+            bItem->setData(Qt::ForegroundRole, QVariant());
+        }
+        QList<double> w8;
+        for (int i = 0; i < 8; ++i)
+            w8.append((i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0);
+        applyCurrentTableDeviationStyle(1, 2, w8);
+        return;
+    }
+    if (carIndex == 2) {
+        if (table->columnCount() < 9 || table->rowCount() < 3)
+            return;
+        const int col = trayVisualColForSlotIndex(slotIndex);
+        QTableWidgetItem *wItem = table->item(2, col);
+        QTableWidgetItem *bItem = table->item(1, col);
+        if (wItem) {
+            wItem->setText(QString());
+            wItem->setData(Qt::ForegroundRole, QVariant());
+        }
+        if (bItem) {
+            bItem->setText(QString());
+            bItem->setData(Qt::ForegroundRole, QVariant());
+        }
+        QList<double> w8;
+        for (int i = 0; i < 8; ++i)
+            w8.append((i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0);
+        applyCurrentTableDeviationStyle(2, 2, w8);
+        return;
+    }
 }
 
 void MainWindow::updateCurrentTableSlot(int carIndex, int slotIndex, const QString &vehicleModel, double weightG, const QString &barcode)
 {
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
     if (!table) return;
-    int row;
-    if (table->rowCount() == 0) {
-        table->insertRow(0);
-        row = 0;
-        table->setItem(row, 0, new QTableWidgetItem(vehicleModel));
-        for (int j = 0; j < 8; ++j) {
-            table->setItem(row, 1 + j * 2, new QTableWidgetItem(QString()));
-            table->setItem(row, 2 + j * 2, new QTableWidgetItem(QString()));
+
+    if (carIndex == 1) {
+        PlcProtocol::FirstCarData &car = m_car1Data;
+        QList<double> wts;
+        QList<QString> bcs;
+        for (int i = 0; i < 8; ++i) {
+            wts.append((i < car.weights.size()) ? car.weights[i] : 0.0);
+            bcs.append((i < car.barcodes.size()) ? car.barcodes[i] : QString());
         }
-        table->setItem(row, 17, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
-    } else {
-        row = table->rowCount() - 1;
-        QTableWidgetItem *vmItem = table->item(row, 0);
-        if (vmItem && vmItem->text().isEmpty())
-            vmItem->setText(vehicleModel);
+        QString vm = vehicleModel;
+        if (vm.isEmpty()) {
+            vm = getItemNameByCommand(QString::number(car.vehicleType));
+            if (vm.isEmpty())
+                vm = vehicleTypeToString(car.vehicleType);
+        }
+        QDateTime ts = QDateTime::fromString(table->property("_tray1Time").toString(),
+                                              QStringLiteral("yyyy-MM-dd hh:mm:ss"));
+        if (!ts.isValid())
+            ts = QDateTime::currentDateTime();
+        fillTray1CurrentTable(vm, wts, bcs, ts);
+        return;
     }
-    int weightCol = 1 + slotIndex * 2;
-    int barcodeCol = 2 + slotIndex * 2;
-    table->setItem(row, weightCol, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
-    table->setItem(row, barcodeCol, new QTableWidgetItem(barcode));
+
+    if (carIndex == 2) {
+        PlcProtocol::FirstCarData &car = m_car2Data;
+        QList<double> wts;
+        QList<QString> bcs;
+        for (int i = 0; i < 8; ++i) {
+            wts.append((i < car.weights.size()) ? car.weights[i] : 0.0);
+            bcs.append((i < car.barcodes.size()) ? car.barcodes[i] : QString());
+        }
+        QString vm = vehicleModel;
+        if (vm.isEmpty()) {
+            vm = getItemNameByCommand(QString::number(car.vehicleType));
+            if (vm.isEmpty())
+                vm = vehicleTypeToString(car.vehicleType);
+        }
+        QDateTime ts = QDateTime::fromString(table->property("_tray2Time").toString(),
+                                              QStringLiteral("yyyy-MM-dd hh:mm:ss"));
+        if (!ts.isValid())
+            ts = QDateTime::currentDateTime();
+        fillTray2CurrentTable(vm, wts, bcs, ts);
+        return;
+    }
 }
 
 void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QList<double> &weights)
 {
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
-    if (!table || row < 0 || row >= table->rowCount()) return;
+    if (!table) return;
+    const bool compactTray1 = (carIndex == 1 && table == ui->extraTable1
+                               && table->columnCount() >= 9 && table->rowCount() >= 3);
+    const bool compactTray2 = (carIndex == 2 && table == ui->extraTable2
+                               && table->columnCount() >= 9 && table->rowCount() >= 3);
+    if (compactTray1 || compactTray2) {
+        const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
+        double w[8];
+        for (int i = 0; i < 8; ++i)
+            w[i] = (i < weights.size()) ? weights[i] : 0.0;
+        QSet<int> redSlots;
+        if (carIndex == 1) {
+            redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+        } else {
+            double w1[8];
+            for (int i = 0; i < 8; ++i)
+                w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
+            redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
+        }
+        QBrush redBrush(Qt::red);
+        for (int i = 0; i < 8; ++i) {
+            const int col = trayVisualColForSlotIndex(i);
+            QTableWidgetItem *wItem = table->item(2, col);
+            QTableWidgetItem *bItem = table->item(1, col);
+            if (redSlots.contains(i)) {
+                if (wItem) wItem->setForeground(redBrush);
+                if (bItem) bItem->setForeground(redBrush);
+            } else {
+                if (wItem) wItem->setData(Qt::ForegroundRole, QVariant());
+                if (bItem) bItem->setData(Qt::ForegroundRole, QVariant());
+            }
+        }
+        return;
+    }
+
+    if (row < 0 || row >= table->rowCount()) return;
     const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
     double w[8];
     for (int i = 0; i < 8; ++i)

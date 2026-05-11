@@ -18,6 +18,7 @@
 #include <QMap>
 #include <QPair>
 #include <QTimer>
+#include <QDateTime>
 #include "tcpclient.h"
 #include "weightdata.h"
 #include "plcprotocol.h"
@@ -108,6 +109,12 @@ private:
     void setupConnections();
     void setupHistoryTableColumns(QTableWidget *table);
     void setupCurrentTableColumns(QTableWidget *table);
+    void setupTray1CurrentTable();  // 第一托当前表：3行×9列，左列车位/条码/重量，隐藏顶表头
+    void setupTray2CurrentTable();  // 第二托当前表：布局同第一托
+    void fillTray1CurrentTable(const QString &vehicleModel, const QList<double> &weights,
+                               const QList<QString> &barcodes, const QDateTime &recordTime);
+    void fillTray2CurrentTable(const QString &vehicleModel, const QList<double> &weights,
+                               const QList<QString> &barcodes, const QDateTime &recordTime);
     void updateConnectionStatus(bool connected);
     void parseReceivedData(const QByteArray &data);
     void addWeightData(const WeightData &data, int tableIndex = 1);
