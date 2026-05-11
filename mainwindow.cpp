@@ -15,6 +15,7 @@
 #include <QSplitter>
 #include <QFont>
 #include <QMouseEvent>
+#include <QSizePolicy>
 #include <QSet>
 #include <QBrush>
 #include <QVector>
@@ -139,18 +140,43 @@ void MainWindow::initializeUI()
     ui->verticalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
     ui->verticalLayout_history->setStretchFactor(ui->historyRightGroup, 1);
     
-    // 设置左侧可视化区域的布局拉伸比例
-    // 第一托可视化：2列各为1，4行各为1
-    ui->gridLayout_leftTop->setColumnStretch(0, 1);
+    // 第一托可视化：4 列 — 左备注(0)、左槽(1)、右槽(2)、右备注(3)；仅中间两列平分宽度
+    ui->gridLayout_leftTop->setColumnStretch(0, 0);
     ui->gridLayout_leftTop->setColumnStretch(1, 1);
+    ui->gridLayout_leftTop->setColumnStretch(2, 1);
+    ui->gridLayout_leftTop->setColumnStretch(3, 0);
+    {
+        const QList<QLabel *> tray1Notes = {
+            ui->slot1_leftNote1, ui->slot1_leftNote2, ui->slot1_leftNote3, ui->slot1_leftNote4,
+            ui->slot1_rightNote1, ui->slot1_rightNote2, ui->slot1_rightNote3, ui->slot1_rightNote4
+        };
+        for (QLabel *lb : tray1Notes) {
+            lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+            lb->setMinimumWidth(36);
+            lb->setMaximumWidth(44);
+        }
+    }
     ui->gridLayout_leftTop->setRowStretch(0, 1);
     ui->gridLayout_leftTop->setRowStretch(1, 1);
     ui->gridLayout_leftTop->setRowStretch(2, 1);
     ui->gridLayout_leftTop->setRowStretch(3, 1);
     
-    // 第二托可视化：2列各为1，4行各为1
-    ui->gridLayout_leftBottom->setColumnStretch(0, 1);
+    // 第二托可视化：与第一托相同 4 列布局
+    ui->gridLayout_leftBottom->setColumnStretch(0, 0);
     ui->gridLayout_leftBottom->setColumnStretch(1, 1);
+    ui->gridLayout_leftBottom->setColumnStretch(2, 1);
+    ui->gridLayout_leftBottom->setColumnStretch(3, 0);
+    {
+        const QList<QLabel *> tray2Notes = {
+            ui->slot2_leftNote1, ui->slot2_leftNote2, ui->slot2_leftNote3, ui->slot2_leftNote4,
+            ui->slot2_rightNote1, ui->slot2_rightNote2, ui->slot2_rightNote3, ui->slot2_rightNote4
+        };
+        for (QLabel *lb : tray2Notes) {
+            lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+            lb->setMinimumWidth(36);
+            lb->setMaximumWidth(44);
+        }
+    }
     ui->gridLayout_leftBottom->setRowStretch(0, 1);
     ui->gridLayout_leftBottom->setRowStretch(1, 1);
     ui->gridLayout_leftBottom->setRowStretch(2, 1);
@@ -275,6 +301,7 @@ void MainWindow::onDisconnectClicked()
 
 void MainWindow::onConnected()
 {
+    m_receiveBuffer.clear();  // 新连接清空缓冲，避免粘包错位
     updateConnectionStatus(true);
     ui->statusbar->showMessage("已连接到服务器", 3000);
     Logger::info("已连接到服务器");
@@ -282,6 +309,7 @@ void MainWindow::onConnected()
 
 void MainWindow::onDisconnected()
 {
+    m_receiveBuffer.clear();
     updateConnectionStatus(false);
     ui->statusbar->showMessage("已断开连接", 3000);
     Logger::info("已断开连接");
@@ -338,6 +366,11 @@ static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
 
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
+    // 长度不是396整数倍的包直接舍弃，避免影响后续解析
+    if (data.size() % PlcProtocol::FullPacketSize != 0) {
+        Logger::warning(QString("收到长度%1字节，非396整数倍，已舍弃").arg(data.size()));
+        return;
+    }
     m_receiveBuffer.append(data);
 
     while (m_receiveBuffer.size() >= PlcProtocol::FullPacketSize) {
@@ -412,10 +445,15 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             }
         } else {
             // 不满足 car1Valid&&car2Empty 也不满足 car2Valid：记录忽略原因便于排查
+            // 调试：打印实际解析用的前6字节，排查粘包错位
             Logger::info(QString("指令已解析但未处理: 车1 assemblyDone=%1 productionMode=%2, 车2 assemblyDone=%3 productionMode=%4, car2Empty=%5")
                 .arg(twoCar.car1.assemblyDone).arg(twoCar.car1.productionMode)
                 .arg(twoCar.car2.assemblyDone).arg(twoCar.car2.productionMode)
                 .arg(car2Empty ? "是" : "否"));
+            Logger::info(QString("  解析用包前6字节(车1头): %1 %2 %3 %4 %5 %6")
+                .arg(quint8(packet[0]), 2, 16, QChar('0')).arg(quint8(packet[1]), 2, 16, QChar('0'))
+                .arg(quint8(packet[2]), 2, 16, QChar('0')).arg(quint8(packet[3]), 2, 16, QChar('0'))
+                .arg(quint8(packet[4]), 2, 16, QChar('0')).arg(quint8(packet[5]), 2, 16, QChar('0')));
         }
     }
 }

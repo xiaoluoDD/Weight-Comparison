@@ -79,6 +79,10 @@ public:
     QGridLayout *gridLayout_weightData;
     QGroupBox *leftTopGroup;
     QGridLayout *gridLayout_leftTop;
+    QLabel *slot1_leftNote1;
+    QLabel *slot1_leftNote2;
+    QLabel *slot1_leftNote3;
+    QLabel *slot1_leftNote4;
     QLabel *slot1_5;
     QLabel *slot1_6;
     QLabel *slot1_7;
@@ -87,6 +91,10 @@ public:
     QLabel *slot1_2;
     QLabel *slot1_3;
     QLabel *slot1_4;
+    QLabel *slot1_rightNote1;
+    QLabel *slot1_rightNote2;
+    QLabel *slot1_rightNote3;
+    QLabel *slot1_rightNote4;
     QWidget *rightWidget;
     QVBoxLayout *verticalLayout_right;
     QGroupBox *ngGroupBox;
@@ -114,6 +122,10 @@ public:
     QTableWidget *extraTable2;
     QGroupBox *leftBottomGroup;
     QGridLayout *gridLayout_leftBottom;
+    QLabel *slot2_leftNote1;
+    QLabel *slot2_leftNote2;
+    QLabel *slot2_leftNote3;
+    QLabel *slot2_leftNote4;
     QLabel *slot2_5;
     QLabel *slot2_6;
     QLabel *slot2_7;
@@ -122,6 +134,10 @@ public:
     QLabel *slot2_2;
     QLabel *slot2_3;
     QLabel *slot2_4;
+    QLabel *slot2_rightNote1;
+    QLabel *slot2_rightNote2;
+    QLabel *slot2_rightNote3;
+    QLabel *slot2_rightNote4;
     QWidget *historyTab;
     QVBoxLayout *verticalLayout_history;
     QGroupBox *historyLeftGroup;
@@ -348,61 +364,109 @@ public:
         leftTopGroup->setObjectName("leftTopGroup");
         gridLayout_leftTop = new QGridLayout(leftTopGroup);
         gridLayout_leftTop->setObjectName("gridLayout_leftTop");
+        slot1_leftNote1 = new QLabel(leftTopGroup);
+        slot1_leftNote1->setObjectName("slot1_leftNote1");
+        slot1_leftNote1->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_leftNote1, 0, 0, 1, 1);
+
+        slot1_leftNote2 = new QLabel(leftTopGroup);
+        slot1_leftNote2->setObjectName("slot1_leftNote2");
+        slot1_leftNote2->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_leftNote2, 1, 0, 1, 1);
+
+        slot1_leftNote3 = new QLabel(leftTopGroup);
+        slot1_leftNote3->setObjectName("slot1_leftNote3");
+        slot1_leftNote3->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_leftNote3, 2, 0, 1, 1);
+
+        slot1_leftNote4 = new QLabel(leftTopGroup);
+        slot1_leftNote4->setObjectName("slot1_leftNote4");
+        slot1_leftNote4->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_leftNote4, 3, 0, 1, 1);
+
         slot1_5 = new QLabel(leftTopGroup);
         slot1_5->setObjectName("slot1_5");
         slot1_5->setFrameShape(QFrame::Box);
         slot1_5->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_5, 0, 0, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_5, 0, 1, 1, 1);
 
         slot1_6 = new QLabel(leftTopGroup);
         slot1_6->setObjectName("slot1_6");
         slot1_6->setFrameShape(QFrame::Box);
         slot1_6->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_6, 1, 0, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_6, 1, 1, 1, 1);
 
         slot1_7 = new QLabel(leftTopGroup);
         slot1_7->setObjectName("slot1_7");
         slot1_7->setFrameShape(QFrame::Box);
         slot1_7->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_7, 2, 0, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_7, 2, 1, 1, 1);
 
         slot1_8 = new QLabel(leftTopGroup);
         slot1_8->setObjectName("slot1_8");
         slot1_8->setFrameShape(QFrame::Box);
         slot1_8->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_8, 3, 0, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_8, 3, 1, 1, 1);
 
         slot1_1 = new QLabel(leftTopGroup);
         slot1_1->setObjectName("slot1_1");
         slot1_1->setFrameShape(QFrame::Box);
         slot1_1->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_1, 0, 1, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_1, 0, 2, 1, 1);
 
         slot1_2 = new QLabel(leftTopGroup);
         slot1_2->setObjectName("slot1_2");
         slot1_2->setFrameShape(QFrame::Box);
         slot1_2->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_2, 1, 1, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_2, 1, 2, 1, 1);
 
         slot1_3 = new QLabel(leftTopGroup);
         slot1_3->setObjectName("slot1_3");
         slot1_3->setFrameShape(QFrame::Box);
         slot1_3->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_3, 2, 1, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_3, 2, 2, 1, 1);
 
         slot1_4 = new QLabel(leftTopGroup);
         slot1_4->setObjectName("slot1_4");
         slot1_4->setFrameShape(QFrame::Box);
         slot1_4->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftTop->addWidget(slot1_4, 3, 1, 1, 1);
+        gridLayout_leftTop->addWidget(slot1_4, 3, 2, 1, 1);
+
+        slot1_rightNote1 = new QLabel(leftTopGroup);
+        slot1_rightNote1->setObjectName("slot1_rightNote1");
+        slot1_rightNote1->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_rightNote1, 0, 3, 1, 1);
+
+        slot1_rightNote2 = new QLabel(leftTopGroup);
+        slot1_rightNote2->setObjectName("slot1_rightNote2");
+        slot1_rightNote2->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_rightNote2, 1, 3, 1, 1);
+
+        slot1_rightNote3 = new QLabel(leftTopGroup);
+        slot1_rightNote3->setObjectName("slot1_rightNote3");
+        slot1_rightNote3->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_rightNote3, 2, 3, 1, 1);
+
+        slot1_rightNote4 = new QLabel(leftTopGroup);
+        slot1_rightNote4->setObjectName("slot1_rightNote4");
+        slot1_rightNote4->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftTop->addWidget(slot1_rightNote4, 3, 3, 1, 1);
 
 
         gridLayout_weightData->addWidget(leftTopGroup, 0, 0, 1, 1);
@@ -558,61 +622,109 @@ public:
         leftBottomGroup->setObjectName("leftBottomGroup");
         gridLayout_leftBottom = new QGridLayout(leftBottomGroup);
         gridLayout_leftBottom->setObjectName("gridLayout_leftBottom");
+        slot2_leftNote1 = new QLabel(leftBottomGroup);
+        slot2_leftNote1->setObjectName("slot2_leftNote1");
+        slot2_leftNote1->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_leftNote1, 0, 0, 1, 1);
+
+        slot2_leftNote2 = new QLabel(leftBottomGroup);
+        slot2_leftNote2->setObjectName("slot2_leftNote2");
+        slot2_leftNote2->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_leftNote2, 1, 0, 1, 1);
+
+        slot2_leftNote3 = new QLabel(leftBottomGroup);
+        slot2_leftNote3->setObjectName("slot2_leftNote3");
+        slot2_leftNote3->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_leftNote3, 2, 0, 1, 1);
+
+        slot2_leftNote4 = new QLabel(leftBottomGroup);
+        slot2_leftNote4->setObjectName("slot2_leftNote4");
+        slot2_leftNote4->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_leftNote4, 3, 0, 1, 1);
+
         slot2_5 = new QLabel(leftBottomGroup);
         slot2_5->setObjectName("slot2_5");
         slot2_5->setFrameShape(QFrame::Box);
         slot2_5->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_5, 0, 0, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_5, 0, 1, 1, 1);
 
         slot2_6 = new QLabel(leftBottomGroup);
         slot2_6->setObjectName("slot2_6");
         slot2_6->setFrameShape(QFrame::Box);
         slot2_6->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_6, 1, 0, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_6, 1, 1, 1, 1);
 
         slot2_7 = new QLabel(leftBottomGroup);
         slot2_7->setObjectName("slot2_7");
         slot2_7->setFrameShape(QFrame::Box);
         slot2_7->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_7, 2, 0, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_7, 2, 1, 1, 1);
 
         slot2_8 = new QLabel(leftBottomGroup);
         slot2_8->setObjectName("slot2_8");
         slot2_8->setFrameShape(QFrame::Box);
         slot2_8->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_8, 3, 0, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_8, 3, 1, 1, 1);
 
         slot2_1 = new QLabel(leftBottomGroup);
         slot2_1->setObjectName("slot2_1");
         slot2_1->setFrameShape(QFrame::Box);
         slot2_1->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_1, 0, 1, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_1, 0, 2, 1, 1);
 
         slot2_2 = new QLabel(leftBottomGroup);
         slot2_2->setObjectName("slot2_2");
         slot2_2->setFrameShape(QFrame::Box);
         slot2_2->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_2, 1, 1, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_2, 1, 2, 1, 1);
 
         slot2_3 = new QLabel(leftBottomGroup);
         slot2_3->setObjectName("slot2_3");
         slot2_3->setFrameShape(QFrame::Box);
         slot2_3->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_3, 2, 1, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_3, 2, 2, 1, 1);
 
         slot2_4 = new QLabel(leftBottomGroup);
         slot2_4->setObjectName("slot2_4");
         slot2_4->setFrameShape(QFrame::Box);
         slot2_4->setFrameShadow(QFrame::Raised);
 
-        gridLayout_leftBottom->addWidget(slot2_4, 3, 1, 1, 1);
+        gridLayout_leftBottom->addWidget(slot2_4, 3, 2, 1, 1);
+
+        slot2_rightNote1 = new QLabel(leftBottomGroup);
+        slot2_rightNote1->setObjectName("slot2_rightNote1");
+        slot2_rightNote1->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_rightNote1, 0, 3, 1, 1);
+
+        slot2_rightNote2 = new QLabel(leftBottomGroup);
+        slot2_rightNote2->setObjectName("slot2_rightNote2");
+        slot2_rightNote2->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_rightNote2, 1, 3, 1, 1);
+
+        slot2_rightNote3 = new QLabel(leftBottomGroup);
+        slot2_rightNote3->setObjectName("slot2_rightNote3");
+        slot2_rightNote3->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_rightNote3, 2, 3, 1, 1);
+
+        slot2_rightNote4 = new QLabel(leftBottomGroup);
+        slot2_rightNote4->setObjectName("slot2_rightNote4");
+        slot2_rightNote4->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_leftBottom->addWidget(slot2_rightNote4, 3, 3, 1, 1);
 
 
         gridLayout_weightData->addWidget(leftBottomGroup, 1, 0, 1, 1);
@@ -824,6 +936,10 @@ public:
         ___qtablewidgetitem1->setText(QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\345\220\215\347\247\260", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(bindingTab), QCoreApplication::translate("MainWindow", "\350\275\246\345\236\213\347\273\221\345\256\232", nullptr));
         leftTopGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\270\200\346\211\230\345\217\257\350\247\206\345\214\226", nullptr));
+        slot1_leftNote1->setText(QCoreApplication::translate("MainWindow", "\345\217\2631", nullptr));
+        slot1_leftNote2->setText(QCoreApplication::translate("MainWindow", "\345\217\2632", nullptr));
+        slot1_leftNote3->setText(QCoreApplication::translate("MainWindow", "\345\217\2633", nullptr));
+        slot1_leftNote4->setText(QCoreApplication::translate("MainWindow", "\345\217\2634", nullptr));
         slot1_5->setText(QString());
         slot1_6->setText(QString());
         slot1_7->setText(QString());
@@ -832,6 +948,10 @@ public:
         slot1_2->setText(QString());
         slot1_3->setText(QString());
         slot1_4->setText(QString());
+        slot1_rightNote1->setText(QCoreApplication::translate("MainWindow", "\345\267\2461", nullptr));
+        slot1_rightNote2->setText(QCoreApplication::translate("MainWindow", "\345\267\2462", nullptr));
+        slot1_rightNote3->setText(QCoreApplication::translate("MainWindow", "\345\267\2463", nullptr));
+        slot1_rightNote4->setText(QCoreApplication::translate("MainWindow", "\345\267\2464", nullptr));
         ngGroupBox->setTitle(QCoreApplication::translate("MainWindow", "NG\345\223\201\350\241\250\346\240\274", nullptr));
         weightRangeLabel->setText(QCoreApplication::translate("MainWindow", "\346\234\200\345\244\247\351\207\215\351\207\217: -- g    \346\234\200\345\260\217\351\207\215\351\207\217: -- g", nullptr));
         ngAddBtn->setText(QCoreApplication::translate("MainWindow", "\346\267\273\345\212\240", nullptr));
@@ -861,6 +981,10 @@ public:
         QTableWidgetItem *___qtablewidgetitem10 = extraTable2->horizontalHeaderItem(1);
         ___qtablewidgetitem10->setText(QCoreApplication::translate("MainWindow", "\345\210\2272", nullptr));
         leftBottomGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\272\214\346\211\230\345\217\257\350\247\206\345\214\226", nullptr));
+        slot2_leftNote1->setText(QCoreApplication::translate("MainWindow", "\345\217\2631", nullptr));
+        slot2_leftNote2->setText(QCoreApplication::translate("MainWindow", "\345\217\2632", nullptr));
+        slot2_leftNote3->setText(QCoreApplication::translate("MainWindow", "\345\217\2633", nullptr));
+        slot2_leftNote4->setText(QCoreApplication::translate("MainWindow", "\345\217\2634", nullptr));
         slot2_5->setText(QString());
         slot2_6->setText(QString());
         slot2_7->setText(QString());
@@ -869,6 +993,10 @@ public:
         slot2_2->setText(QString());
         slot2_3->setText(QString());
         slot2_4->setText(QString());
+        slot2_rightNote1->setText(QCoreApplication::translate("MainWindow", "\345\267\2461", nullptr));
+        slot2_rightNote2->setText(QCoreApplication::translate("MainWindow", "\345\267\2462", nullptr));
+        slot2_rightNote3->setText(QCoreApplication::translate("MainWindow", "\345\267\2463", nullptr));
+        slot2_rightNote4->setText(QCoreApplication::translate("MainWindow", "\345\267\2464", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(weightDataTab), QCoreApplication::translate("MainWindow", "\347\247\260\351\207\215\346\225\260\346\215\256", nullptr));
         historyLeftGroup->setTitle(QCoreApplication::translate("MainWindow", "\347\254\254\344\270\200\346\211\230\347\247\260\351\207\215\350\241\250\346\240\274", nullptr));
         QTableWidgetItem *___qtablewidgetitem11 = weightTable1->horizontalHeaderItem(0);
