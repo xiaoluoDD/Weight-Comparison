@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>称重对比软件</string>
+   <string>称重对比系统</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -129,9 +129,6 @@
             <widget class="QLabel" name="connectionStatusLabel">
              <property name="text">
               <string>未连接</string>
-             </property>
-             <property name="styleSheet">
-              <string>color: red; font-weight: bold;</string>
              </property>
             </widget>
            </item>

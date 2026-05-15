@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "industrialtheme.h"
 #include "visualizationslotlabel.h"
 #include "slotdialog.h"
 #include "ngadddialog.h"
@@ -19,11 +20,53 @@
 #include <QSizePolicy>
 #include <QSet>
 #include <QBrush>
+#include <QItemSelectionModel>
 #include <QVector>
 #include <algorithm>
 
 // 空槽位阈值，重量<=此值视为空，不参与偏差比较
 static const double EmptySlotThreshold = 0.0001;
+
+enum { DeviationStateRole = Qt::UserRole + 1 };
+
+static bool isTrayCompactCurrentTable(QTableWidget *table)
+{
+    return table && table->columnCount() >= 9 && table->rowCount() >= 3;
+}
+
+static bool isTrayTableColumnSelected(QTableWidget *table, int column)
+{
+    if (!table || !table->selectionModel())
+        return false;
+    for (const QModelIndex &ix : table->selectionModel()->selectedIndexes()) {
+        if (ix.column() == column)
+            return true;
+    }
+    return false;
+}
+
+/** 偏差色与选中高亮：选中列时清除自定义前景，交给 QSS 显示选中底色 */
+static void updateCompactTrayCellAppearance(QTableWidget *table, QTableWidgetItem *item)
+{
+    if (!table || !item)
+        return;
+    if (isTrayTableColumnSelected(table, item->column())) {
+        item->setData(Qt::ForegroundRole, QVariant());
+        item->setData(Qt::BackgroundRole, QVariant());
+        return;
+    }
+    const QString state = item->data(DeviationStateRole).toString();
+    if (state == QStringLiteral("alarm")) {
+        item->setForeground(QColor(QStringLiteral("#ff5c5c")));
+        item->setData(Qt::BackgroundRole, QVariant());
+    } else if (state == QStringLiteral("ok")) {
+        item->setForeground(QColor(QStringLiteral("#3ddc84")));
+        item->setData(Qt::BackgroundRole, QVariant());
+    } else {
+        item->setData(Qt::ForegroundRole, QVariant());
+        item->setData(Qt::BackgroundRole, QVariant());
+    }
+}
 
 // 第一/第二托当前表：列1-8 与可视化一致——先左列槽位自上而下，再右列槽位自上而下，对应协议槽位下标
 static const int TrayVisualColOrderSlotIndex[8] = { 4, 5, 6, 7, 0, 1, 2, 3 };
@@ -92,8 +135,12 @@ static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weigh
         posItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         t->setItem(0, c + 1, posItem);
         const bool has = wg > EmptySlotThreshold;
-        t->setItem(1, c + 1, new QTableWidgetItem(has ? bc : QString()));
-        t->setItem(2, c + 1, new QTableWidgetItem(has ? QString::number(wg, 'f', 1) : QString()));
+        auto *bcItem = new QTableWidgetItem(has ? bc : QString());
+        bcItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        t->setItem(1, c + 1, bcItem);
+        auto *wItem = new QTableWidgetItem(has ? QString::number(wg, 'f', 1) : QString());
+        wItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        t->setItem(2, c + 1, wItem);
     }
 }
 
@@ -199,6 +246,11 @@ MainWindow::~MainWindow()
 
 void MainWindow::initializeUI()
 {
+    IndustrialTheme::polishMainWindow(this);
+
+    setWindowTitle(QStringLiteral("称重对比系统"));
+    setMinimumSize(1100, 720);
+
     // 系统设置区域：TCP连接和偏差参数不拉伸，保持正常大小
     ui->verticalLayout_settings->setStretchFactor(ui->connectionGroup, 0);
     ui->verticalLayout_settings->setStretchFactor(ui->deviationGroup, 0);
@@ -215,7 +267,28 @@ void MainWindow::initializeUI()
     // 第一托/第二托「当前」表：3×9 紧凑布局（左列车位/条码/重量）
     setupTray1CurrentTable();
     setupTray2CurrentTable();
-    
+
+    auto setupTrayCurrentTableSelection = [this](QTableWidget *table, int carIndex) {
+        table->setSelectionMode(QAbstractItemView::SingleSelection);
+        table->setSelectionBehavior(QAbstractItemView::SelectColumns);
+        table->setFocusPolicy(Qt::StrongFocus);
+        connect(table->selectionModel(), &QItemSelectionModel::selectionChanged, this,
+                [this, table, carIndex](const QItemSelection &, const QItemSelection &) {
+                    if (!isTrayCompactCurrentTable(table))
+                        return;
+                    QList<double> weights;
+                    weights.resize(8);
+                    for (int c = 0; c < 8; ++c) {
+                        const int slotIdx = TrayVisualColOrderSlotIndex[c];
+                        QTableWidgetItem *wItem = table->item(2, c + 1);
+                        weights[slotIdx] = wItem ? wItem->text().toDouble() : 0.0;
+                    }
+                    applyCurrentTableDeviationStyle(carIndex, 2, weights);
+                });
+    };
+    setupTrayCurrentTableSelection(ui->extraTable1, 1);
+    setupTrayCurrentTableSelection(ui->extraTable2, 2);
+
     // 称重数据页：左(可视化)、右(NG+当前表) 等宽
     ui->gridLayout_weightData->setColumnStretch(0, 1);
     ui->gridLayout_weightData->setColumnStretch(1, 1);
@@ -245,6 +318,7 @@ void MainWindow::initializeUI()
             ui->slot1_rightNote1, ui->slot1_rightNote2, ui->slot1_rightNote3, ui->slot1_rightNote4
         };
         for (QLabel *lb : tray1Notes) {
+            lb->setProperty("trayNote", true);
             lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
             lb->setMinimumWidth(36);
             lb->setMaximumWidth(44);
@@ -266,6 +340,7 @@ void MainWindow::initializeUI()
             ui->slot2_rightNote1, ui->slot2_rightNote2, ui->slot2_rightNote3, ui->slot2_rightNote4
         };
         for (QLabel *lb : tray2Notes) {
+            lb->setProperty("trayNote", true);
             lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
             lb->setMinimumWidth(36);
             lb->setMaximumWidth(44);
@@ -480,13 +555,10 @@ void MainWindow::updateConnectionStatus(bool connected)
     ui->serverAddressEdit->setEnabled(!connected);
     ui->serverPortEdit->setEnabled(!connected);
     
-    if (connected) {
-        ui->connectionStatusLabel->setText("已连接");
-        ui->connectionStatusLabel->setStyleSheet("color: green; font-weight: bold;");
-    } else {
-        ui->connectionStatusLabel->setText("未连接");
-        ui->connectionStatusLabel->setStyleSheet("color: red; font-weight: bold;");
-    }
+    ui->connectionStatusLabel->setProperty("connState", connected ? "online" : "offline");
+    ui->connectionStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
+    ui->connectionStatusLabel->style()->unpolish(ui->connectionStatusLabel);
+    ui->connectionStatusLabel->style()->polish(ui->connectionStatusLabel);
 }
 
 static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
@@ -790,16 +862,14 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
     }
 
-    // 超差：红色；正常：绿色；PLC 新工件用橙色边框闪烁（不铺背景，避免挡字）
-    const QString normalColor = QStringLiteral("#1b8a1b");
+    // 偏差色与 PLC 新工件边框闪烁（由 VisualizationSlotLabel 自绘）
     for (int i = 0; i < 8; ++i) {
         const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
-        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i]))
+        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(flashHere);
-        if (redSlots.contains(i))
-            slotLabels[i]->setStyleSheet(QStringLiteral("color: red;"));
-        else
-            slotLabels[i]->setStyleSheet(QStringLiteral("color: %1;").arg(normalColor));
+            vsl->setDeviationState(redSlots.contains(i) ? QStringLiteral("alarm")
+                                                       : QStringLiteral("ok"));
+        }
     }
 }
 
@@ -1385,13 +1455,15 @@ void MainWindow::doCompleteAndClearBothTrays()
     QLabel *slots2[] = { ui->slot2_1, ui->slot2_2, ui->slot2_3, ui->slot2_4, ui->slot2_5, ui->slot2_6, ui->slot2_7, ui->slot2_8 };
     for (int i = 0; i < 8; ++i) {
         slots1[i]->setText(QString());
-        slots1[i]->setStyleSheet(QString());
         slots2[i]->setText(QString());
-        slots2[i]->setStyleSheet(QString());
-        if (auto *v1 = qobject_cast<VisualizationSlotLabel *>(slots1[i]))
+        if (auto *v1 = qobject_cast<VisualizationSlotLabel *>(slots1[i])) {
             v1->setFlashHighlight(false);
-        if (auto *v2 = qobject_cast<VisualizationSlotLabel *>(slots2[i]))
+            v1->setDeviationState(QString());
+        }
+        if (auto *v2 = qobject_cast<VisualizationSlotLabel *>(slots2[i])) {
             v2->setFlashHighlight(false);
+            v2->setDeviationState(QString());
+        }
     }
     m_detectionOkTimer->stop();
     m_firstTrayOkSent = false;  // 清空后重置，下一轮可再发第一托OK
@@ -1591,8 +1663,10 @@ void MainWindow::clearCarDataAndVisualization(int carIndex)
     }
     for (int i = 0; i < 8; ++i) {
         slotLabels[i]->setText(QString());
-        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i]))
+        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(false);
+            vsl->setDeviationState(QString());
+        }
     }
 
     PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
@@ -1734,17 +1808,18 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
                 w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
             redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
         }
-        QBrush redBrush(Qt::red);
         for (int i = 0; i < 8; ++i) {
             const int col = trayVisualColForSlotIndex(i);
             QTableWidgetItem *wItem = table->item(2, col);
-            QTableWidgetItem *bItem = table->item(1, col);
-            if (redSlots.contains(i)) {
-                if (wItem) wItem->setForeground(redBrush);
-                if (bItem) bItem->setForeground(redBrush);
-            } else {
-                if (wItem) wItem->setData(Qt::ForegroundRole, QVariant());
-                if (bItem) bItem->setData(Qt::ForegroundRole, QVariant());
+            const bool hasData = wItem && !wItem->text().trimmed().isEmpty();
+            const QString state = redSlots.contains(i) ? QStringLiteral("alarm")
+                                   : (hasData ? QStringLiteral("ok") : QString());
+            for (int r = 0; r < 3; ++r) {
+                QTableWidgetItem *cell = table->item(r, col);
+                if (!cell)
+                    continue;
+                cell->setData(DeviationStateRole, state);
+                updateCompactTrayCellAppearance(table, cell);
             }
         }
         return;
@@ -1767,10 +1842,10 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
     for (int i = 0; i < 8; ++i) {
         QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
         QTableWidgetItem *bItem = table->item(row, 2 + i * 2);
-        QBrush redBrush(Qt::red);
+        const QBrush alarmBrush(QColor(QStringLiteral("#ff5c5c")));
         if (redSlots.contains(i)) {
-            if (wItem) wItem->setForeground(redBrush);
-            if (bItem) bItem->setForeground(redBrush);
+            if (wItem) wItem->setForeground(alarmBrush);
+            if (bItem) bItem->setForeground(alarmBrush);
         } else {
             if (wItem) wItem->setData(Qt::ForegroundRole, QVariant());
             if (bItem) bItem->setData(Qt::ForegroundRole, QVariant());

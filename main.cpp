@@ -1,11 +1,14 @@
 #include "mainwindow.h"
 #include "logger.h"
+#include "industrialtheme.h"
 
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+
+    IndustrialTheme::apply(&a);
 
     // 初始化日志（exe 同级目录/log，按日期保存）
     Logger::init();
