@@ -74,6 +74,7 @@ private slots:
 
     void onDetectionOkTimerFired();
     void onLongPressTimerFired();  // 长按1号槽位5秒清空
+    void onNewSlotFlashTimerFired();  // PLC 新工件槽位背景闪烁
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -101,6 +102,10 @@ private:
     double m_displayMinWeight = -1;  // 当前显示的最小重量(g)，-1表示未设置
     QTimer *m_longPressTimer = nullptr;  // 长按1号槽位5秒清空
     int m_longPressCarIndex = 0;         // 长按中的托号(1或2)，0表示无
+    QTimer *m_newSlotFlashTimer = nullptr; // PLC 新工件槽位背景闪烁（持续到点击对应托「完成」）
+    int m_newSlotFlashSlot1 = -1;          // 第一托闪烁槽位 0-7，-1 无
+    int m_newSlotFlashSlot2 = -1;          // 第二托闪烁槽位
+    bool m_newSlotFlashHighlight = false;  // 闪烁相位（两托共用）
 
     void updateWeightRangeDisplay();  // 更新最大/最小重量显示
 
@@ -127,7 +132,10 @@ private:
     int vehicleModelToType(const QString &model);  // 车型名称转车型代码
     WeightData firstCarDataToWeightData(const PlcProtocol::FirstCarData &car);
     void updateCarVisualization(int carIndex, const PlcProtocol::FirstCarData &car);  // 正常生产时更新可视化槽位
-    void applySlotDeviationStyle(int carIndex, const QList<double> &weights);  // 根据偏差设置槽位字体颜色
+    void applySlotDeviationStyle(int carIndex, const QList<double> &weights,
+                                 int flashSlotIndex = -1, bool flashBackgroundOn = false);  // 偏差颜色；可选新槽位背景闪烁
+    void startNewSlotHighlightFlash(int carIndex, int slotIndex);  // PLC 新数据时提醒当前工件槽位
+    void stopNewSlotHighlightFlash(int carIndex);  // 1/2：停止该托闪烁（完成按钮或清空时）
     void refreshAllVisualizationDeviation();  // 每次物品移动后刷新两托的60g偏差判断
     QString formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const;  // 三行纯文本；由 VisualizationSlotLabel 居中绘制、行左对齐
     void setupSlotDoubleClick();  // 为可视化槽位安装双击事件过滤

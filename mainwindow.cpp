@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "visualizationslotlabel.h"
 #include "slotdialog.h"
 #include "ngadddialog.h"
 #include "ngusedialog.h"
@@ -24,7 +25,7 @@
 // 空槽位阈值，重量<=此值视为空，不参与偏差比较
 static const double EmptySlotThreshold = 0.0001;
 
-// 第一/第二托当前表：列1-8 为可视化顺序 右1..右4、左1..左4，对应协议槽位下标
+// 第一/第二托当前表：列1-8 与可视化一致——先左列槽位自上而下，再右列槽位自上而下，对应协议槽位下标
 static const int TrayVisualColOrderSlotIndex[8] = { 4, 5, 6, 7, 0, 1, 2, 3 };
 
 static int trayVisualColForSlotIndex(int slotIndex)
@@ -78,25 +79,43 @@ static void setupTrayCompactCurrentTableLayout(QTableWidget *t)
 }
 
 static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weights,
-                                     const QList<QString> &barcodes)
+                                     const QList<QString> &barcodes, int trayIndex)
 {
-    static const QString kPosNames[8] = {
-        QStringLiteral("右1"), QStringLiteral("右2"), QStringLiteral("右3"), QStringLiteral("右4"),
-        QStringLiteral("左1"), QStringLiteral("左2"), QStringLiteral("左3"), QStringLiteral("左4")
-    };
     for (int c = 0; c < 8; ++c) {
         int slotIdx = TrayVisualColOrderSlotIndex[c];
         double wg = (slotIdx < weights.size()) ? weights[slotIdx] : 0.0;
         QString bc = (slotIdx < barcodes.size()) ? barcodes[slotIdx] : QString();
-        QTableWidgetItem *posItem = new QTableWidgetItem(kPosNames[c]);
+        const QString posName = trayIndex == 1
+            ? QStringLiteral("左%1").arg(c + 1)
+            : QStringLiteral("右%1").arg(c + 1);
+        QTableWidgetItem *posItem = new QTableWidgetItem(posName);
         posItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         t->setItem(0, c + 1, posItem);
-        t->setItem(1, c + 1, new QTableWidgetItem(bc));
-        t->setItem(2, c + 1, new QTableWidgetItem(QString::number(wg, 'f', 1)));
+        const bool has = wg > EmptySlotThreshold;
+        t->setItem(1, c + 1, new QTableWidgetItem(has ? bc : QString()));
+        t->setItem(2, c + 1, new QTableWidgetItem(has ? QString::number(wg, 'f', 1) : QString()));
     }
 }
 
 static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
+
+static bool plcSlotHasPayload(const PlcProtocol::FirstCarData &car, int i)
+{
+    const double w = (i < car.weights.size()) ? car.weights[i] : 0.0;
+    // 与界面一致：重量为 0（或未称重）视为空槽，不参与「新槽位」判断
+    return w > EmptySlotThreshold;
+}
+
+/** PLC 按序累计上报（前序数据保留、每次多一个新工件）：取本次新占用的最大槽位下标 */
+static int findNewlyFilledSlotIndexMax(const PlcProtocol::FirstCarData &prev, const PlcProtocol::FirstCarData &next)
+{
+    int best = -1;
+    for (int i = 0; i < 8; ++i) {
+        if (plcSlotHasPayload(next, i) && !plcSlotHasPayload(prev, i))
+            best = i;
+    }
+    return best;
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -117,6 +136,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_longPressTimer = new QTimer(this);
     m_longPressTimer->setSingleShot(true);
     connect(m_longPressTimer, &QTimer::timeout, this, &MainWindow::onLongPressTimerFired);
+
+    m_newSlotFlashTimer = new QTimer(this);
+    m_newSlotFlashTimer->setInterval(280);
+    connect(m_newSlotFlashTimer, &QTimer::timeout, this, &MainWindow::onNewSlotFlashTimerFired);
 
     // 初始化UI设置
     initializeUI();
@@ -348,7 +371,7 @@ void MainWindow::fillTray1CurrentTable(const QString &vehicleModel, const QList<
     setupTray1CurrentTable();
     t->setProperty("_tray1VehicleModel", vehicleModel);
     t->setProperty("_tray1Time", recordTime.toString(QStringLiteral("yyyy-MM-dd hh:mm:ss")));
-    fillTrayCompactDataCells(t, weights, barcodes);
+    fillTrayCompactDataCells(t, weights, barcodes, 1);
     QList<double> w8;
     for (int i = 0; i < 8; ++i)
         w8.append((i < weights.size()) ? weights[i] : 0.0);
@@ -362,7 +385,7 @@ void MainWindow::fillTray2CurrentTable(const QString &vehicleModel, const QList<
     setupTray2CurrentTable();
     t->setProperty("_tray2VehicleModel", vehicleModel);
     t->setProperty("_tray2Time", recordTime.toString(QStringLiteral("yyyy-MM-dd hh:mm:ss")));
-    fillTrayCompactDataCells(t, weights, barcodes);
+    fillTrayCompactDataCells(t, weights, barcodes, 2);
     QList<double> w8;
     for (int i = 0; i < 8; ++i)
         w8.append((i < weights.size()) ? weights[i] : 0.0);
@@ -477,7 +500,7 @@ static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
 
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
-    // 长度不是396整数倍的包直接舍弃，避免影响后续解析
+    // PLC 每次整帧 396 字节，无数据段为 0；长度非 396 整数倍则舍弃，避免错位解析
     if (data.size() % PlcProtocol::FullPacketSize != 0) {
         Logger::warning(QString("收到长度%1字节，非396整数倍，已舍弃").arg(data.size()));
         return;
@@ -591,10 +614,11 @@ WeightData MainWindow::firstCarDataToWeightData(const PlcProtocol::FirstCarData 
 
 QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, const QString &barcode) const
 {
-    const QString bcTrim = barcode.trimmed();
-    if (weightG <= EmptySlotThreshold && bcTrim.isEmpty())
+    // 重量为 0 不显示（PLC 用 0 填充空位）
+    if (weightG <= EmptySlotThreshold)
         return QString();
 
+    const QString bcTrim = barcode.trimmed();
     QString vm = vehicleModel;
     if (vm.isEmpty())
         vm = QStringLiteral("-");
@@ -604,9 +628,7 @@ QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, 
         vm = QStringLiteral("12v");
 
     QString wPart;
-    if (weightG <= EmptySlotThreshold)
-        wPart = QStringLiteral("-");
-    else if (qAbs(weightG - qint64(qRound(weightG))) < 0.05)
+    if (qAbs(weightG - qint64(qRound(weightG))) < 0.05)
         wPart = QString::number(qint64(qRound(weightG))) + QStringLiteral("g");
     else
         wPart = QString::number(weightG, 'f', 1) + QStringLiteral("g");
@@ -618,12 +640,16 @@ QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, 
 
 void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCarData &car)
 {
+    if (carIndex != 1 && carIndex != 2)
+        return;
+
+    const PlcProtocol::FirstCarData prev = (carIndex == 1) ? m_car1Data : m_car2Data;
+    const int newFlashSlot = findNewlyFilledSlotIndexMax(prev, car);
+
     if (carIndex == 1)
         m_car1Data = car;
-    else if (carIndex == 2)
-        m_car2Data = car;
     else
-        return;
+        m_car2Data = car;
 
     QLabel *slotLabels[8];
     if (carIndex == 1) {
@@ -644,6 +670,8 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
         slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
     }
     refreshAllVisualizationDeviation();  // 每次物品移动后判断任意2个是否大于60g
+    if (newFlashSlot >= 0)
+        startNewSlotHighlightFlash(carIndex, newFlashSlot);
 }
 
 // 协议用 float 传输，转 g 后仍有精度误差，60g 边界需容差
@@ -735,7 +763,8 @@ static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], dou
     return redSlots;
 }
 
-void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights)
+void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights,
+                                         int flashSlotIndex, bool flashBackgroundOn)
 {
     QLabel *slotLabels[8];
     if (carIndex == 1) {
@@ -761,21 +790,69 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
     }
 
-    // 超差：红色；正常：绿色（便于与红字区分）
+    // 超差：红色；正常：绿色；PLC 新工件用橙色边框闪烁（不铺背景，避免挡字）
     const QString normalColor = QStringLiteral("#1b8a1b");
     for (int i = 0; i < 8; ++i) {
-        if (redSlots.contains(i)) {
+        const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
+        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i]))
+            vsl->setFlashHighlight(flashHere);
+        if (redSlots.contains(i))
             slotLabels[i]->setStyleSheet(QStringLiteral("color: red;"));
-        } else {
+        else
             slotLabels[i]->setStyleSheet(QStringLiteral("color: %1;").arg(normalColor));
-        }
     }
+}
+
+void MainWindow::startNewSlotHighlightFlash(int carIndex, int slotIndex)
+{
+    if (slotIndex < 0 || slotIndex > 7 || carIndex < 1 || carIndex > 2)
+        return;
+    if (carIndex == 1)
+        m_newSlotFlashSlot1 = slotIndex;
+    else
+        m_newSlotFlashSlot2 = slotIndex;
+    m_newSlotFlashHighlight = true;
+    applySlotDeviationStyle(1, m_car1Data.weights,
+                            m_newSlotFlashSlot1,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot1 >= 0);
+    applySlotDeviationStyle(2, m_car2Data.weights,
+                            m_newSlotFlashSlot2,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot2 >= 0);
+    if (!m_newSlotFlashTimer->isActive())
+        m_newSlotFlashTimer->start();
+}
+
+void MainWindow::stopNewSlotHighlightFlash(int carIndex)
+{
+    if (carIndex == 1)
+        m_newSlotFlashSlot1 = -1;
+    else if (carIndex == 2)
+        m_newSlotFlashSlot2 = -1;
+    else
+        return;
+    if (m_newSlotFlashSlot1 < 0 && m_newSlotFlashSlot2 < 0)
+        m_newSlotFlashTimer->stop();
+}
+
+void MainWindow::onNewSlotFlashTimerFired()
+{
+    m_newSlotFlashHighlight = !m_newSlotFlashHighlight;
+    applySlotDeviationStyle(1, m_car1Data.weights,
+                            m_newSlotFlashSlot1,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot1 >= 0);
+    applySlotDeviationStyle(2, m_car2Data.weights,
+                            m_newSlotFlashSlot2,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot2 >= 0);
 }
 
 void MainWindow::refreshAllVisualizationDeviation()
 {
-    applySlotDeviationStyle(1, m_car1Data.weights);
-    applySlotDeviationStyle(2, m_car2Data.weights);
+    applySlotDeviationStyle(1, m_car1Data.weights,
+                            m_newSlotFlashSlot1,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot1 >= 0);
+    applySlotDeviationStyle(2, m_car2Data.weights,
+                            m_newSlotFlashSlot2,
+                            m_newSlotFlashHighlight && m_newSlotFlashSlot2 >= 0);
 
     // 第一托填满且无超差时：未发过第一托OK则启动定时器；已发过则等第二托也填满无超差才启动
     double w1[8], w2[8];
@@ -1248,16 +1325,21 @@ void MainWindow::onSaveDeviationClicked()
 
 void MainWindow::onCompleteCurrent1Clicked()
 {
+    stopNewSlotHighlightFlash(1);
+    refreshAllVisualizationDeviation();
     // 第一托完成按钮不做任何操作，等第二托完成
     return;
 }
 
 void MainWindow::onCompleteCurrent2Clicked()
 {
+    stopNewSlotHighlightFlash(2);
+
     int totalRows = (trayCompactCurrentTableHasPayload(ui->extraTable1) ? 1 : 0)
         + (trayCompactCurrentTableHasPayload(ui->extraTable2) ? 1 : 0);
     if (totalRows == 0) {
         QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("当前表格无数据"));
+        refreshAllVisualizationDeviation();
         return;
     }
     // 发送第二托完成OK指令（携带两托所有物品数据）
@@ -1279,6 +1361,10 @@ void MainWindow::onCompleteCurrent2Clicked()
 
 void MainWindow::doCompleteAndClearBothTrays()
 {
+    m_newSlotFlashSlot1 = -1;
+    m_newSlotFlashSlot2 = -1;
+    m_newSlotFlashTimer->stop();
+
     int totalRows = (trayCompactCurrentTableHasPayload(ui->extraTable1) ? 1 : 0)
         + (trayCompactCurrentTableHasPayload(ui->extraTable2) ? 1 : 0);
     if (trayCompactCurrentTableHasPayload(ui->extraTable1)) {
@@ -1302,6 +1388,10 @@ void MainWindow::doCompleteAndClearBothTrays()
         slots1[i]->setStyleSheet(QString());
         slots2[i]->setText(QString());
         slots2[i]->setStyleSheet(QString());
+        if (auto *v1 = qobject_cast<VisualizationSlotLabel *>(slots1[i]))
+            v1->setFlashHighlight(false);
+        if (auto *v2 = qobject_cast<VisualizationSlotLabel *>(slots2[i]))
+            v2->setFlashHighlight(false);
     }
     m_detectionOkTimer->stop();
     m_firstTrayOkSent = false;  // 清空后重置，下一轮可再发第一托OK
@@ -1489,6 +1579,8 @@ void MainWindow::mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCa
 
 void MainWindow::clearCarDataAndVisualization(int carIndex)
 {
+    stopNewSlotHighlightFlash(carIndex);
+
     QLabel *slotLabels[8];
     if (carIndex == 1) {
         slotLabels[0] = ui->slot1_1; slotLabels[1] = ui->slot1_2; slotLabels[2] = ui->slot1_3; slotLabels[3] = ui->slot1_4;
@@ -1497,8 +1589,11 @@ void MainWindow::clearCarDataAndVisualization(int carIndex)
         slotLabels[0] = ui->slot2_1; slotLabels[1] = ui->slot2_2; slotLabels[2] = ui->slot2_3; slotLabels[3] = ui->slot2_4;
         slotLabels[4] = ui->slot2_5; slotLabels[5] = ui->slot2_6; slotLabels[6] = ui->slot2_7; slotLabels[7] = ui->slot2_8;
     }
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 8; ++i) {
         slotLabels[i]->setText(QString());
+        if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i]))
+            vsl->setFlashHighlight(false);
+    }
 
     PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
     car.weights.clear();
