@@ -333,13 +333,13 @@
         <item row="0" column="0">
          <widget class="QGroupBox" name="leftTopGroup">
           <property name="title">
-           <string>第一托可视化</string>
+           <string>左车可视化</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_leftTop">
            <item row="0" column="0">
             <widget class="QLabel" name="slot1_leftNote1">
              <property name="text">
-              <string>左1</string>
+              <string>左5</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -349,7 +349,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="slot1_leftNote2">
              <property name="text">
-              <string>左2</string>
+              <string>左6</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -359,7 +359,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="slot1_leftNote3">
              <property name="text">
-              <string>左3</string>
+              <string>左7</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -369,7 +369,7 @@
            <item row="3" column="0">
             <widget class="QLabel" name="slot1_leftNote4">
              <property name="text">
-              <string>左4</string>
+              <string>左8</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -483,7 +483,7 @@
            <item row="0" column="3">
             <widget class="QLabel" name="slot1_rightNote1">
              <property name="text">
-              <string>左5</string>
+              <string>左1</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -493,7 +493,7 @@
            <item row="1" column="3">
             <widget class="QLabel" name="slot1_rightNote2">
              <property name="text">
-              <string>左6</string>
+              <string>左2</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -503,7 +503,7 @@
            <item row="2" column="3">
             <widget class="QLabel" name="slot1_rightNote3">
              <property name="text">
-              <string>左7</string>
+              <string>左3</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -513,7 +513,7 @@
            <item row="3" column="3">
             <widget class="QLabel" name="slot1_rightNote4">
              <property name="text">
-              <string>左8</string>
+              <string>左4</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -756,13 +756,13 @@
         <item row="1" column="0">
          <widget class="QGroupBox" name="leftBottomGroup">
           <property name="title">
-           <string>第二托可视化</string>
+           <string>右车可视化</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_leftBottom">
            <item row="0" column="0">
             <widget class="QLabel" name="slot2_leftNote1">
              <property name="text">
-              <string>右1</string>
+              <string>右5</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -772,7 +772,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="slot2_leftNote2">
              <property name="text">
-              <string>右2</string>
+              <string>右6</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -782,7 +782,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="slot2_leftNote3">
              <property name="text">
-              <string>右3</string>
+              <string>右7</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -792,7 +792,7 @@
            <item row="3" column="0">
             <widget class="QLabel" name="slot2_leftNote4">
              <property name="text">
-              <string>右4</string>
+              <string>右8</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -906,7 +906,7 @@
            <item row="0" column="3">
             <widget class="QLabel" name="slot2_rightNote1">
              <property name="text">
-              <string>右5</string>
+              <string>右1</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -916,7 +916,7 @@
            <item row="1" column="3">
             <widget class="QLabel" name="slot2_rightNote2">
              <property name="text">
-              <string>右6</string>
+              <string>右2</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -926,7 +926,7 @@
            <item row="2" column="3">
             <widget class="QLabel" name="slot2_rightNote3">
              <property name="text">
-              <string>右7</string>
+              <string>右3</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -936,7 +936,7 @@
            <item row="3" column="3">
             <widget class="QLabel" name="slot2_rightNote4">
              <property name="text">
-              <string>右8</string>
+              <string>右4</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignLeft|Qt::AlignVCenter</set>

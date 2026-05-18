@@ -34,6 +34,77 @@ static bool isTrayCompactCurrentTable(QTableWidget *table)
     return table && table->columnCount() >= 9 && table->rowCount() >= 3;
 }
 
+static void applyTableBarcodeWrapSettings(QTableWidget *t)
+{
+    if (!t)
+        return;
+    t->setWordWrap(true);
+    t->setTextElideMode(Qt::ElideNone);
+}
+
+static void styleBarcodeTableItem(QTableWidgetItem *item)
+{
+    if (!item)
+        return;
+    item->setTextAlignment(Qt::AlignLeft | Qt::AlignTop);
+}
+
+/** 按列宽计算换行后的单元格高度（QTableWidget 需配合 setSizeHint 才能撑开行高） */
+static int wrappedBarcodeCellHeight(const QFontMetrics &fm, int columnWidth, const QString &text)
+{
+    if (text.isEmpty())
+        return fm.height() + 8;
+    const int innerW = qMax(24, columnWidth - 12);
+    const QRect br = fm.boundingRect(QRect(0, 0, innerW, 10000),
+                                     Qt::AlignLeft | Qt::TextWordWrap, text);
+    return br.height() + 12;
+}
+
+static void applyBarcodeCellSizeHint(QTableWidget *table, int row, int col, QTableWidgetItem *item)
+{
+    if (!table || !item)
+        return;
+    styleBarcodeTableItem(item);
+    const QFontMetrics fm(table->font());
+    const int h = wrappedBarcodeCellHeight(fm, table->columnWidth(col), item->text());
+    item->setSizeHint(QSize(table->columnWidth(col), h));
+}
+
+static void resizeCompactTrayBarcodeRow(QTableWidget *t)
+{
+    if (!isTrayCompactCurrentTable(t))
+        return;
+    const QFontMetrics fm(t->font());
+    int maxH = fm.height() + 8;
+    for (int c = 1; c <= 8; ++c) {
+        if (QTableWidgetItem *it = t->item(1, c)) {
+            const int h = wrappedBarcodeCellHeight(fm, t->columnWidth(c), it->text());
+            it->setSizeHint(QSize(t->columnWidth(c), h));
+            maxH = qMax(maxH, h);
+        }
+    }
+    t->verticalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    t->setRowHeight(1, maxH);
+}
+
+static void resizeTableRowsForBarcodeColumns(QTableWidget *table, const QList<int> &barcodeCols)
+{
+    if (!table || barcodeCols.isEmpty())
+        return;
+    const QFontMetrics fm(table->font());
+    for (int row = 0; row < table->rowCount(); ++row) {
+        int maxH = fm.height() + 8;
+        for (int col : barcodeCols) {
+            if (QTableWidgetItem *it = table->item(row, col)) {
+                const int h = wrappedBarcodeCellHeight(fm, table->columnWidth(col), it->text());
+                it->setSizeHint(QSize(table->columnWidth(col), h));
+                maxH = qMax(maxH, h);
+            }
+        }
+        table->setRowHeight(row, maxH);
+    }
+}
+
 static bool isTrayTableColumnSelected(QTableWidget *table, int column)
 {
     if (!table || !table->selectionModel())
@@ -68,8 +139,15 @@ static void updateCompactTrayCellAppearance(QTableWidget *table, QTableWidgetIte
     }
 }
 
-// 第一/第二托当前表：列1-8 与可视化一致——先左列槽位自上而下，再右列槽位自上而下，对应协议槽位下标
+// 当前表列1-8 与协议槽映射不变；仅显示编号：列1-4 标为 5-8，列5-8 标为 1-4（车型仍从右侧槽位 0 起依次填入）
 static const int TrayVisualColOrderSlotIndex[8] = { 4, 5, 6, 7, 0, 1, 2, 3 };
+
+static QString trayVisualPosLabel(int trayIndex, int visualCol)
+{
+    const int labelNum = (visualCol < 4) ? (visualCol + 5) : (visualCol - 3);
+    return trayIndex == 1 ? QStringLiteral("左%1").arg(labelNum)
+                          : QStringLiteral("右%1").arg(labelNum);
+}
 
 static int trayVisualColForSlotIndex(int slotIndex)
 {
@@ -105,9 +183,10 @@ static void setupTrayCompactCurrentTableLayout(QTableWidget *t)
     t->horizontalHeader()->setVisible(false);
     t->verticalHeader()->setVisible(false);
     t->horizontalHeader()->setStretchLastSection(false);
+    applyTableBarcodeWrapSettings(t);
     t->setColumnWidth(0, 52);
     for (int c = 1; c < 9; ++c)
-        t->setColumnWidth(c, 72);
+        t->setColumnWidth(c, 132);
     auto makeRowTitle = [](const QString &s) {
         QTableWidgetItem *it = new QTableWidgetItem(s);
         it->setFlags(Qt::ItemIsEnabled);
@@ -128,20 +207,21 @@ static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weigh
         int slotIdx = TrayVisualColOrderSlotIndex[c];
         double wg = (slotIdx < weights.size()) ? weights[slotIdx] : 0.0;
         QString bc = (slotIdx < barcodes.size()) ? barcodes[slotIdx] : QString();
-        const QString posName = trayIndex == 1
-            ? QStringLiteral("左%1").arg(c + 1)
-            : QStringLiteral("右%1").arg(c + 1);
-        QTableWidgetItem *posItem = new QTableWidgetItem(posName);
+        QTableWidgetItem *posItem = new QTableWidgetItem(trayVisualPosLabel(trayIndex, c));
         posItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         t->setItem(0, c + 1, posItem);
         const bool has = wg > EmptySlotThreshold;
         auto *bcItem = new QTableWidgetItem(has ? bc : QString());
         bcItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        if (has && !bc.isEmpty())
+            bcItem->setToolTip(bc);
         t->setItem(1, c + 1, bcItem);
+        applyBarcodeCellSizeHint(t, 1, c + 1, bcItem);
         auto *wItem = new QTableWidgetItem(has ? QString::number(wg, 'f', 1) : QString());
         wItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         t->setItem(2, c + 1, wItem);
     }
+    resizeCompactTrayBarcodeRow(t);
 }
 
 static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
@@ -221,7 +301,14 @@ MainWindow::MainWindow(QWidget *parent)
             const QList<QVariant> &row = ngList[i];
             ui->ngTable->setItem(i, 0, new QTableWidgetItem(row.value(0).toString()));
             ui->ngTable->setItem(i, 1, new QTableWidgetItem(row.value(1).toString()));
-            ui->ngTable->setItem(i, 2, new QTableWidgetItem(row.value(2).toString()));
+            const QString bc = row.value(2).toString();
+            auto *bcItem = new QTableWidgetItem(bc);
+            if (!bc.isEmpty())
+                bcItem->setToolTip(bc);
+            ui->ngTable->setItem(i, 2, bcItem);
+            applyBarcodeCellSizeHint(ui->ngTable, i, 2, bcItem);
+            ui->ngTable->setRowHeight(i, wrappedBarcodeCellHeight(ui->ngTable->fontMetrics(),
+                                                                   ui->ngTable->columnWidth(2), bc));
             ui->ngTable->setItem(i, 3, new QTableWidgetItem(QString::number(row.value(3).toDouble(), 'f', 1)));  // 数据库存克(g)
             QDateTime dt = QDateTime::fromString(row.value(4).toString(), Qt::ISODate);
             ui->ngTable->setItem(i, 4, new QTableWidgetItem(dt.toString("yyyy-MM-dd hh:mm:ss")));
@@ -300,14 +387,16 @@ void MainWindow::initializeUI()
     ui->verticalLayout_right->setStretchFactor(ui->extraTable1Group, 1);
     ui->verticalLayout_right->setStretchFactor(ui->extraTable2Group, 1);
     // 当前表格最大高度限制，便于显示1-2行
-    ui->extraTable1->setMaximumHeight(140);
-    ui->extraTable2->setMaximumHeight(140);
+    applyTableBarcodeWrapSettings(ui->extraTable1);
+    applyTableBarcodeWrapSettings(ui->extraTable2);
+    ui->extraTable1->setMaximumHeight(260);
+    ui->extraTable2->setMaximumHeight(260);
     
     // 设置历史记录标签页的布局拉伸比例（上下两表各为1）
     ui->verticalLayout_history->setStretchFactor(ui->historyLeftGroup, 1);
     ui->verticalLayout_history->setStretchFactor(ui->historyRightGroup, 1);
     
-    // 第一托可视化：4 列 — 左备注(0)、左槽(1)、右槽(2)、右备注(3)；仅中间两列平分宽度
+    // 左车可视化：4 列 — 左备注(0)、槽1-4(1)、槽5-8(2)、右备注(3)；仅中间两列平分宽度
     ui->gridLayout_leftTop->setColumnStretch(0, 0);
     ui->gridLayout_leftTop->setColumnStretch(1, 1);
     ui->gridLayout_leftTop->setColumnStretch(2, 1);
@@ -329,7 +418,7 @@ void MainWindow::initializeUI()
     ui->gridLayout_leftTop->setRowStretch(2, 1);
     ui->gridLayout_leftTop->setRowStretch(3, 1);
     
-    // 第二托可视化：与第一托相同 4 列布局
+    // 右车可视化：与左车相同 4 列布局
     ui->gridLayout_leftBottom->setColumnStretch(0, 0);
     ui->gridLayout_leftBottom->setColumnStretch(1, 1);
     ui->gridLayout_leftBottom->setColumnStretch(2, 1);
@@ -358,17 +447,20 @@ void MainWindow::initializeUI()
                << ui->slot2_1 << ui->slot2_2 << ui->slot2_3 << ui->slot2_4
                << ui->slot2_5 << ui->slot2_6 << ui->slot2_7 << ui->slot2_8;
     QFont slotFont;
-    slotFont.setPointSize(13);
+    slotFont.setPointSize(14);
     slotFont.setBold(true);
     for (QLabel *lb : slotLabels) {
         lb->setTextFormat(Qt::PlainText);
         lb->setAlignment(Qt::AlignCenter);
         lb->setFont(slotFont);
-        lb->setWordWrap(false);
+        lb->setMinimumWidth(108);
         lb->setContentsMargins(4, 4, 4, 4);
     }
 
     setupSlotDoubleClick();
+
+    applyTableBarcodeWrapSettings(ui->ngTable);
+    ui->ngTable->setColumnWidth(2, 240);
 
     // NG品表格：确保5列(id,车型,条码,重量,时间)，隐藏id列，连接删除/使用按钮
     if (ui->ngTable->columnCount() < 5) {
@@ -397,14 +489,15 @@ void MainWindow::initializeUI()
 
 void MainWindow::setupHistoryTableColumns(QTableWidget *table)
 {
+    applyTableBarcodeWrapSettings(table);
     // 关闭最后一列的自动拉伸
     table->horizontalHeader()->setStretchLastSection(false);
-    
+
     // 列顺序：车型名称、重量1、条码1、…、重量8、条码8、时间（共18列）
     table->setColumnWidth(0, 75);   // 车型名称
     for (int i = 0; i < 8; ++i) {
         table->setColumnWidth(1 + i * 2, 55);     // 重量1-8
-        table->setColumnWidth(2 + i * 2, 75);     // 条码1-8
+        table->setColumnWidth(2 + i * 2, 150);    // 条码1-8（20 位可换行显示）
     }
     table->setColumnWidth(17, 130); // 时间
 }
@@ -705,7 +798,7 @@ QString MainWindow::formatSlotText(const QString &vehicleModel, double weightG, 
     else
         wPart = QString::number(weightG, 'f', 1) + QStringLiteral("g");
 
-    const QString bc = bcTrim.isEmpty() ? QStringLiteral("-") : barcode;
+    const QString bc = bcTrim.isEmpty() ? QStringLiteral("-") : bcTrim;
 
     return QStringLiteral("机型：%1\n重量：%2\n条码：%3").arg(vm).arg(wPart).arg(bc);
 }
@@ -739,7 +832,9 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
     for (int i = 0; i < 8; ++i) {
         double w = (i < weights.size()) ? weights[i] : 0.0;
         QString bc = (i < barcodes.size()) ? barcodes[i] : QString();
-        slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
+        const QString slotText = formatSlotText(vehicleModel, w, bc);
+        slotLabels[i]->setText(slotText);
+        slotLabels[i]->setToolTip(bc.trimmed().isEmpty() ? QString() : bc.trimmed());
     }
     refreshAllVisualizationDeviation();  // 每次物品移动后判断任意2个是否大于60g
     if (newFlashSlot >= 0)
@@ -1111,7 +1206,13 @@ void MainWindow::addNgRecord(const QString &vehicleModel, const QString &barcode
     ui->ngTable->insertRow(row);
     ui->ngTable->setItem(row, 0, new QTableWidgetItem(QString::number(id)));
     ui->ngTable->setItem(row, 1, new QTableWidgetItem(vehicleModel));
-    ui->ngTable->setItem(row, 2, new QTableWidgetItem(barcode));
+    auto *bcItem = new QTableWidgetItem(barcode);
+    if (!barcode.isEmpty())
+        bcItem->setToolTip(barcode);
+    ui->ngTable->setItem(row, 2, bcItem);
+    applyBarcodeCellSizeHint(ui->ngTable, row, 2, bcItem);
+    ui->ngTable->setRowHeight(row, wrappedBarcodeCellHeight(ui->ngTable->fontMetrics(),
+                                                            ui->ngTable->columnWidth(2), barcode));
     ui->ngTable->setItem(row, 3, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 克(g)
     ui->ngTable->setItem(row, 4, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
 }
@@ -1216,6 +1317,7 @@ void MainWindow::onNgUseClicked()
     }
 
     slotLabels[slotIndex]->setText(formatSlotText(vehicleModel, weightG, barcode));
+    slotLabels[slotIndex]->setToolTip(barcode.trimmed());
 
     PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
     while (car.weights.size() < 8) car.weights.append(0.0);
@@ -1630,6 +1732,7 @@ void MainWindow::mergeSupplementIntoCar(int carIndex, const PlcProtocol::FirstCa
         double w = (i < target.weights.size()) ? target.weights[i] : 0.0;
         QString bc = (i < target.barcodes.size()) ? target.barcodes[i] : QString();
         slotLabels[i]->setText(formatSlotText(vehicleModel, w, bc));
+        slotLabels[i]->setToolTip(bc.trimmed().isEmpty() ? QString() : bc.trimmed());
     }
 
     // 更新当前表格
@@ -1822,6 +1925,7 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
                 updateCompactTrayCellAppearance(table, cell);
             }
         }
+        resizeCompactTrayBarcodeRow(table);
         return;
     }
 
@@ -1867,6 +1971,7 @@ void MainWindow::addWeightData(const WeightData &data, int tableIndex)
 
 void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> &dataList)
 {
+    applyTableBarcodeWrapSettings(table);
     table->setRowCount(dataList.size());
     QList<QString> barcodes;
 
@@ -1881,10 +1986,19 @@ void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> 
             double weightG = (j < weights.size()) ? weights[j] : 0.0;
             QString barcode = (j < barcodes.size()) ? barcodes[j] : QString();
             table->setItem(i, col++, new QTableWidgetItem(QString::number(weightG, 'f', 1)));  // 内部克(g)
-            table->setItem(i, col++, new QTableWidgetItem(barcode));
+            auto *bcItem = new QTableWidgetItem(barcode);
+            if (!barcode.isEmpty())
+                bcItem->setToolTip(barcode);
+            const int bcCol = col;
+            table->setItem(i, col++, bcItem);
+            applyBarcodeCellSizeHint(table, i, bcCol, bcItem);
         }
         table->setItem(i, col++, new QTableWidgetItem(data.timestamp().toString("yyyy-MM-dd hh:mm:ss")));
     }
+    QList<int> barcodeCols;
+    for (int j = 0; j < 8; ++j)
+        barcodeCols.append(2 + j * 2);
+    resizeTableRowsForBarcodeColumns(table, barcodeCols);
 }
 
 QString MainWindow::getItemNameByCommand(const QString &command)
