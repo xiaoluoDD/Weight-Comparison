@@ -641,7 +641,7 @@
            <item>
             <widget class="QGroupBox" name="extraTable1Group">
              <property name="title">
-              <string>第一托当前表格</string>
+              <string>左车当前表格</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_extra1">
               <item>
@@ -697,7 +697,7 @@
            <item>
             <widget class="QGroupBox" name="extraTable2Group">
              <property name="title">
-              <string>第二托当前表格</string>
+              <string>右车当前表格</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_extra2">
               <item>
@@ -956,7 +956,7 @@
         <item>
          <widget class="QGroupBox" name="historyLeftGroup">
           <property name="title">
-           <string>第一托称重表格</string>
+           <string>左车称重表格</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_historyLeft">
            <item>
@@ -1096,7 +1096,7 @@
         <item>
          <widget class="QGroupBox" name="historyRightGroup">
           <property name="title">
-           <string>第二托称重表格</string>
+           <string>右车称重表格</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_historyRight">
            <item>

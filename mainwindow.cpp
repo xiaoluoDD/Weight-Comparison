@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "industrialtheme.h"
 #include "visualizationslotlabel.h"
 #include "slotdialog.h"
 #include "ngadddialog.h"
@@ -32,6 +31,11 @@ enum { DeviationStateRole = Qt::UserRole + 1 };
 static bool isTrayCompactCurrentTable(QTableWidget *table)
 {
     return table && table->columnCount() >= 9 && table->rowCount() >= 3;
+}
+
+static QString carDisplayName(int carIndex)
+{
+    return carIndex == 1 ? QStringLiteral("左车") : QStringLiteral("右车");
 }
 
 static void applyTableBarcodeWrapSettings(QTableWidget *t)
@@ -116,7 +120,7 @@ static bool isTrayTableColumnSelected(QTableWidget *table, int column)
     return false;
 }
 
-/** 偏差色与选中高亮：选中列时清除自定义前景，交给 QSS 显示选中底色 */
+/** 偏差色与选中高亮：选中列时清除自定义前景，使用系统默认选中样式 */
 static void updateCompactTrayCellAppearance(QTableWidget *table, QTableWidgetItem *item)
 {
     if (!table || !item)
@@ -128,10 +132,10 @@ static void updateCompactTrayCellAppearance(QTableWidget *table, QTableWidgetIte
     }
     const QString state = item->data(DeviationStateRole).toString();
     if (state == QStringLiteral("alarm")) {
-        item->setForeground(QColor(QStringLiteral("#ff5c5c")));
+        item->setForeground(QBrush(Qt::red));
         item->setData(Qt::BackgroundRole, QVariant());
     } else if (state == QStringLiteral("ok")) {
-        item->setForeground(QColor(QStringLiteral("#3ddc84")));
+        item->setForeground(QBrush(Qt::darkGreen));
         item->setData(Qt::BackgroundRole, QVariant());
     } else {
         item->setData(Qt::ForegroundRole, QVariant());
@@ -333,8 +337,6 @@ MainWindow::~MainWindow()
 
 void MainWindow::initializeUI()
 {
-    IndustrialTheme::polishMainWindow(this);
-
     setWindowTitle(QStringLiteral("称重对比系统"));
     setMinimumSize(1100, 720);
 
@@ -648,10 +650,12 @@ void MainWindow::updateConnectionStatus(bool connected)
     ui->serverAddressEdit->setEnabled(!connected);
     ui->serverPortEdit->setEnabled(!connected);
     
-    ui->connectionStatusLabel->setProperty("connState", connected ? "online" : "offline");
+    if (connected) {
+        ui->connectionStatusLabel->setStyleSheet(QStringLiteral("color: green; font-weight: bold;"));
+    } else {
+        ui->connectionStatusLabel->setStyleSheet(QStringLiteral("color: gray;"));
+    }
     ui->connectionStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
-    ui->connectionStatusLabel->style()->unpolish(ui->connectionStatusLabel);
-    ui->connectionStatusLabel->style()->polish(ui->connectionStatusLabel);
 }
 
 static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
@@ -698,7 +702,7 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             int count = m_lastSupplementQuantity;
             if (count <= 0) count = 8;  // 未记录时取前8个
             mergeSupplementIntoCar(trayIndex, car, count);
-            Logger::info(QString("解析到补充生产数据: 第%1托 前%2个工件").arg(trayIndex).arg(count));
+            Logger::info(QString("解析到补充生产数据: %1 前%2个工件").arg(carDisplayName(trayIndex)).arg(count));
             continue;
         }
 
@@ -712,13 +716,13 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             updateCarVisualization(1, twoCar.car1);
             WeightData w1 = firstCarDataToWeightData(twoCar.car1);
             appendToCurrentTable(w1, 1);
-            Logger::info("解析到第一托数据并已写入当前表格");
+            Logger::info("解析到左车数据并已写入当前表格");
         } else if (car2Valid) {
             // 第二托数据：第一托已有不再变，只更新第二托
             updateCarVisualization(2, twoCar.car2);
             WeightData w2 = firstCarDataToWeightData(twoCar.car2);
             appendToCurrentTable(w2, 2);
-            Logger::info("解析到第二托数据并已写入当前表格");
+            Logger::info("解析到右车数据并已写入当前表格");
             // 只把正常数据（非红）与最大最小比较，异常值不参与
             if (m_displayMaxWeight >= 0 || m_displayMinWeight >= 0) {
                 double w1[8], w2arr[8];
@@ -1278,8 +1282,10 @@ void MainWindow::onProductionSupplementClicked()
     }
     // trayIndex==2 时不清空第一托
 
-    ui->statusbar->showMessage(QStringLiteral("已发送生产补充指令: 第%1托, 数量%2").arg(trayIndex).arg(supplementQty), 3000);
-    Logger::info(QString("生产补充: 托%1 车型%2 数量%3").arg(trayIndex).arg(vehicleType).arg(supplementQty));
+    ui->statusbar->showMessage(QStringLiteral("已发送生产补充指令: %1, 数量%2")
+                                 .arg(carDisplayName(trayIndex)).arg(supplementQty), 3000);
+    Logger::info(QString("生产补充: %1 车型%2 数量%3")
+                     .arg(carDisplayName(trayIndex)).arg(vehicleType).arg(supplementQty));
 }
 
 void MainWindow::onNgUseClicked()
@@ -1332,7 +1338,7 @@ void MainWindow::onNgUseClicked()
     if (DatabaseManager::instance().deleteNgRecord(id)) {
         ui->ngTable->removeRow(row);
         ui->statusbar->showMessage(QStringLiteral("已使用NG品并放入槽位"), 2000);
-        Logger::info(QString("NG品已放入 托%1 槽位%2: %3").arg(carIndex).arg(slotIndex + 1).arg(barcode));
+        Logger::info(QString("NG品已放入 %1 槽位%2: %3").arg(carDisplayName(carIndex)).arg(slotIndex + 1).arg(barcode));
     }
 }
 
@@ -1437,8 +1443,8 @@ void MainWindow::onDetectionOkTimerFired()
             b2List.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
         }
         sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1List, b1List, m_car1Data.vehicleType, w2List, b2List, m_car2Data.vehicleType));
-        ui->statusbar->showMessage(QStringLiteral("2托检测OK，已发送信号并清空"), 2000);
-        Logger::info("2托无超差，已发送检测OK指令（含两托数据）");
+        ui->statusbar->showMessage(QStringLiteral("右车检测OK，已发送信号并清空"), 2000);
+        Logger::info("右车无超差，已发送检测OK指令（含左右车数据）");
         doCompleteAndClearBothTrays();
     } else {
         // 仅第一托填满无超差且尚未发过第一托OK：发送第一托数据（只发一次）
@@ -1451,8 +1457,8 @@ void MainWindow::onDetectionOkTimerFired()
             }
             sendDataWithLog(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
             m_firstTrayOkSent = true;  // 标记已发，不再重复发送
-            ui->statusbar->showMessage(QStringLiteral("第一托检测OK，已发送信号"), 2000);
-            Logger::info("第一托无超差，已发送检测OK指令");
+            ui->statusbar->showMessage(QStringLiteral("左车检测OK，已发送信号"), 2000);
+            Logger::info("左车无超差，已发送检测OK指令");
             // 写入第一托最大最小重量到显示
             double maxW = -1, minW = -1;
             for (int i = 0; i < 8; ++i) {
@@ -1474,8 +1480,8 @@ void MainWindow::onLongPressTimerFired()
     if (m_longPressCarIndex == 1 || m_longPressCarIndex == 2) {
         clearCarDataAndVisualization(m_longPressCarIndex);
         ui->statusbar->showMessage(
-            (m_longPressCarIndex == 1) ? QStringLiteral("已清空第一托") : QStringLiteral("已清空第二托"), 2000);
-        Logger::info(QString("长按1号槽位5秒，已清空第%1托").arg(m_longPressCarIndex));
+            QStringLiteral("已清空%1").arg(carDisplayName(m_longPressCarIndex)), 2000);
+        Logger::info(QString("长按1号槽位5秒，已清空%1").arg(carDisplayName(m_longPressCarIndex)));
         m_longPressCarIndex = 0;
     }
 }
@@ -1525,10 +1531,10 @@ void MainWindow::onCompleteCurrent2Clicked()
             b2.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
         }
         sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1, b1, m_car1Data.vehicleType, w2, b2, m_car2Data.vehicleType));
-        Logger::info("2托完成，已发送检测OK指令（含两托数据）");
+        Logger::info("右车完成，已发送检测OK指令（含左右车数据）");
     }
     doCompleteAndClearBothTrays();
-    ui->statusbar->showMessage(QStringLiteral("2托已完成，已发送OK指令、保存到历史并清空"), 2000);
+    ui->statusbar->showMessage(QStringLiteral("右车已完成，已发送OK指令、保存到历史并清空"), 2000);
 }
 
 void MainWindow::doCompleteAndClearBothTrays()
@@ -1575,7 +1581,7 @@ void MainWindow::doCompleteAndClearBothTrays()
     m_displayMinWeight = -1;
     updateWeightRangeDisplay();
     refreshAllVisualizationDeviation();
-    Logger::info(QString("2托完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
+    Logger::info(QString("右车完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
 }
 
 void MainWindow::completeCurrentTable(QTableWidget *table, int tableIndex)
