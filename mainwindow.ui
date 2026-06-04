@@ -183,7 +183,7 @@
                 <double>60.0</double>
                </property>
                <property name="toolTip">
-                <string>左车：收齐8件后按最优区间判剔除。右车：与左车任意槽位比较差≥阈值优先标红；收齐8件后在未标红槽位内再做内部最优区间对比。</string>
+                <string>左/右车：PLC装件完成(assemblyDone=2)后才开始对比；仅对有重量的槽位参与比较(可为6件)。右车：与左车任意槽位比较差≥阈值优先标红，再在未标红槽位内做内部最优区间对比。</string>
                </property>
               </widget>
              </item>

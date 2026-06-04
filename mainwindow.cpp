@@ -229,8 +229,9 @@ static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weigh
 }
 
 static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double thresholdG, const QString &carLabel,
-                                              const QSet<int> &excludeSlots = QSet<int>());
-static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
+                                              const QSet<int> &excludeSlots, bool assemblyComplete);
+static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG, bool assemblyComplete);
+static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG, bool car2AssemblyComplete);
 
 static bool plcSlotHasPayload(const PlcProtocol::FirstCarData &car, int i)
 {
@@ -662,11 +663,18 @@ void MainWindow::updateConnectionStatus(bool connected)
 
 static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
 {
-    if (car.assemblyDone != 1) return true;
+    if (car.assemblyDone >= PlcProtocol::AssemblyInProgress)
+        return false;
     for (double w : car.weights) {
-        if (w > 0.0001) return false;
+        if (w > EmptySlotThreshold)
+            return false;
     }
-    return true;  // 完成标志有但重量全0，视为空
+    return true;
+}
+
+static bool isAssemblyComplete(const PlcProtocol::FirstCarData &car)
+{
+    return car.assemblyDone == PlcProtocol::AssemblyDoneComplete;
 }
 
 void MainWindow::parseReceivedData(const QByteArray &data)
@@ -708,34 +716,30 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             continue;
         }
 
-        // 正常生产：通过完成标志(assemblyDone)识别是哪一托
-        bool car1Valid = (twoCar.car1.assemblyDone == 1) && (twoCar.car1.productionMode == PlcProtocol::NormalProduction || twoCar.car1.productionMode == 0);
-        bool car2Valid = (twoCar.car2.assemblyDone == 1) && (twoCar.car2.productionMode == PlcProtocol::NormalProduction || twoCar.car2.productionMode == 0);
+        bool car1Empty = isCarDataEmpty(twoCar.car1);
         bool car2Empty = isCarDataEmpty(twoCar.car2);
+        bool car1Valid = !car1Empty
+            && (twoCar.car1.productionMode == PlcProtocol::NormalProduction || twoCar.car1.productionMode == 0);
+        bool car2Valid = !car2Empty
+            && (twoCar.car2.productionMode == PlcProtocol::NormalProduction || twoCar.car2.productionMode == 0);
 
-        if (car1Valid && car2Empty) {
-            // 第一托数据：第二托为空，只更新第一托
-            updateCarVisualization(1, twoCar.car1);
-            WeightData w1 = firstCarDataToWeightData(twoCar.car1);
-            appendToCurrentTable(w1, 1);
-            Logger::info("解析到左车数据并已写入当前表格");
-        } else if (car2Valid) {
-            // 第二托数据：第一托已有不再变，只更新第二托
+        auto applyCar2Update = [&]() {
             updateCarVisualization(2, twoCar.car2);
             WeightData w2 = firstCarDataToWeightData(twoCar.car2);
             appendToCurrentTable(w2, 2);
             Logger::info("解析到右车数据并已写入当前表格");
-            // 只把正常数据（非红）与最大最小比较，异常值不参与
             if (m_displayMaxWeight >= 0 || m_displayMinWeight >= 0) {
                 double w1[8], w2arr[8];
                 for (int i = 0; i < 8; ++i) {
                     w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
                     w2arr[i] = (i < twoCar.car2.weights.size()) ? twoCar.car2.weights[i] : 0.0;
                 }
-                QSet<int> red2 = computeRedSlotsCar2(w1, w2arr, ui->deviationThresholdSpinBox->value());
+                QSet<int> red2 = computeRedSlotsCar2(w1, w2arr, ui->deviationThresholdSpinBox->value(),
+                                                     isAssemblyComplete(twoCar.car2));
                 bool updated = false;
                 for (int i = 0; i < 8; ++i) {
-                    if (red2.contains(i) || w2arr[i] <= EmptySlotThreshold) continue;  // 跳过异常和空槽
+                    if (red2.contains(i) || w2arr[i] <= EmptySlotThreshold)
+                        continue;
                     double w = w2arr[i];
                     if (m_displayMaxWeight >= 0 && w > m_displayMaxWeight) {
                         m_displayMaxWeight = w;
@@ -746,7 +750,29 @@ void MainWindow::parseReceivedData(const QByteArray &data)
                         updated = true;
                     }
                 }
-                if (updated) updateWeightRangeDisplay();
+                if (updated)
+                    updateWeightRangeDisplay();
+            }
+        };
+
+        if (car1Valid && car2Empty) {
+            // 仅左车有数据
+            updateCarVisualization(1, twoCar.car1);
+            WeightData w1 = firstCarDataToWeightData(twoCar.car1);
+            appendToCurrentTable(w1, 1);
+            Logger::info("解析到左车数据并已写入当前表格");
+        } else if (car2Valid && car1Empty) {
+            // 仅右车有数据
+            applyCar2Update();
+        } else if (car1Valid && car2Valid) {
+            // 双车同包：本地左车尚无数据时写左车，否则写右车（避免模拟器第二车默认值误触发右车）
+            if (isCarDataEmpty(m_car1Data)) {
+                updateCarVisualization(1, twoCar.car1);
+                WeightData w1 = firstCarDataToWeightData(twoCar.car1);
+                appendToCurrentTable(w1, 1);
+                Logger::info("解析到左车数据并已写入当前表格");
+            } else {
+                applyCar2Update();
             }
         } else {
             // 不满足 car1Valid&&car2Empty 也不满足 car2Valid：记录忽略原因便于排查
@@ -842,7 +868,7 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
         slotLabels[i]->setText(slotText);
         slotLabels[i]->setToolTip(bc.trimmed().isEmpty() ? QString() : bc.trimmed());
     }
-    refreshAllVisualizationDeviation();  // 左车收齐8件后按区间算法判偏差
+    refreshAllVisualizationDeviation();  // 装件完成(assemblyDone=2)后按区间算法判偏差
     if (newFlashSlot >= 0)
         startNewSlotHighlightFlash(carIndex, newFlashSlot);
 }
@@ -850,24 +876,11 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
 // 协议用 float 传输，转 g 后仍有精度误差，阈值边界需容差
 static const double DeviationEpsilon = 0.001;  // 0.001g 容差
 
-static bool carAllSlotsFilled(const double w[8])
-{
-    for (int i = 0; i < 8; ++i) {
-        if (w[i] <= EmptySlotThreshold)
-            return false;
-    }
-    return true;
-}
-
-/**
- * 左/右车共用：在排序序列上找极差<阈值且重量和最大的连续区间作为保留，区间外标红。
- * excludeSlots 非空时（右车内部对比）：已标红槽位不参与排序与区间计算。
- */
 static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double thresholdG, const QString &carLabel,
-                                              const QSet<int> &excludeSlots)
+                                              const QSet<int> &excludeSlots, bool assemblyComplete)
 {
     QSet<int> redSlots;
-    if (excludeSlots.isEmpty() && !carAllSlotsFilled(w))
+    if (excludeSlots.isEmpty() && !assemblyComplete)
         return redSlots;
 
     struct WeightEntry {
@@ -885,8 +898,6 @@ static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double threshol
     }
 
     if (sortData.isEmpty())
-        return redSlots;
-    if (excludeSlots.isEmpty() && sortData.size() < 8)
         return redSlots;
 
     std::sort(sortData.begin(), sortData.end(), [](const WeightEntry &a, const WeightEntry &b) {
@@ -934,16 +945,18 @@ static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double threshol
     for (int k = bestL; k <= bestR; ++k)
         keepSlotLabels.append(QString::number(sortData[k].slotIndex + 1));
     if (excludeSlots.isEmpty()) {
-        Logger::info(QStringLiteral("%1 8件对比: 保留%2件(槽%3) 剔除%4件 剔除总重%5g 阈值%6g")
+        Logger::info(QStringLiteral("%1 %2件对比: 保留%3件(槽%4) 剔除%5件 剔除总重%6g 阈值%7g")
                          .arg(carLabel)
+                         .arg(n)
                          .arg(bestR - bestL + 1)
                          .arg(keepSlotLabels.join(QLatin1Char(',')))
                          .arg(redSlots.size())
                          .arg(removedWeight, 0, 'f', 1)
                          .arg(thresholdG, 0, 'f', 1));
     } else {
-        Logger::info(QStringLiteral("%1 8件对比: 已排除%2件(与左车对比已标红) 参与%3件 保留%4件(槽%5) 剔除%6件 剔除总重%7g 阈值%8g")
+        Logger::info(QStringLiteral("%1 %2件对比: 已排除%3件(与左车对比已标红) 参与%4件 保留%5件(槽%6) 剔除%7件 剔除总重%8g 阈值%9g")
                          .arg(carLabel)
+                         .arg(n)
                          .arg(excludeSlots.size())
                          .arg(n)
                          .arg(bestR - bestL + 1)
@@ -955,14 +968,19 @@ static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double threshol
     return redSlots;
 }
 
-static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
+static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG, bool assemblyComplete)
 {
-    return computeRedSlotsOptimalWindow(w, thresholdG, QStringLiteral("左车"));
+    if (!assemblyComplete)
+        return QSet<int>();
+    return computeRedSlotsOptimalWindow(w, thresholdG, QStringLiteral("左车"), QSet<int>(), true);
 }
 
-static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG)
+static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG,
+                                       bool car2AssemblyComplete)
 {
     QSet<int> redSlots;
+    if (!car2AssemblyComplete)
+        return redSlots;
 
     // 第一步：与左车任意槽位对比，任一对差≥阈值立即标红（优先判定）
     for (int i = 0; i < 8; ++i) {
@@ -978,25 +996,23 @@ static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], dou
         }
     }
 
-    // 第二步：右车收齐 8 件后，在剩余未标红槽位内做最优区间对比
-    if (carAllSlotsFilled(w2)) {
-        const QSet<int> internalRed = computeRedSlotsOptimalWindow(
-            w2, thresholdG, QStringLiteral("右车内部"), redSlots);
-        for (int idx : internalRed)
-            redSlots.insert(idx);
-    }
+    // 第二步：装件完成后，在剩余未标红槽位内做最优区间对比
+    const QSet<int> internalRed = computeRedSlotsOptimalWindow(
+        w2, thresholdG, QStringLiteral("右车内部"), redSlots, true);
+    for (int idx : internalRed)
+        redSlots.insert(idx);
 
     return redSlots;
 }
 
-static QString slotDeviationState(int carIndex, int slotIndex, const double w[8], const QSet<int> &redSlots)
+static QString slotDeviationState(int slotIndex, const double w[8], const QSet<int> &redSlots,
+                                  bool assemblyComplete)
 {
     if (slotIndex < 0 || slotIndex >= 8 || w[slotIndex] <= EmptySlotThreshold)
         return QString();
     if (redSlots.contains(slotIndex))
         return QStringLiteral("alarm");
-    // 左车：收齐 8 件后才标绿；右车：收齐 8 件且通过左车对比+内部对比后才标绿
-    if (!carAllSlotsFilled(w))
+    if (!assemblyComplete)
         return QString();
     return QStringLiteral("ok");
 }
@@ -1018,14 +1034,16 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
     for (int i = 0; i < 8; ++i)
         w[i] = (i < weights.size()) ? weights[i] : 0.0;
 
+    const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
+
     QSet<int> redSlots;
     if (carIndex == 1) {
-        redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+        redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
     } else {
         double w1[8];
         for (int i = 0; i < 8; ++i)
             w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
+        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
     }
 
     // 偏差色与 PLC 新工件边框闪烁（由 VisualizationSlotLabel 自绘）
@@ -1033,7 +1051,7 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
         if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(flashHere);
-            vsl->setDeviationState(slotDeviationState(carIndex, i, w, redSlots));
+            vsl->setDeviationState(slotDeviationState(i, w, redSlots, assemblyComplete));
         }
     }
 }
@@ -1095,15 +1113,14 @@ void MainWindow::refreshAllVisualizationDeviation()
         w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
         w2[i] = (i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0;
     }
-    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value());
-    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value());
-    bool car1IsFull = true, car2IsFull = true;
-    for (int i = 0; i < 8; ++i) {
-        if (w1[i] <= EmptySlotThreshold) car1IsFull = false;
-        if (w2[i] <= EmptySlotThreshold) car2IsFull = false;
-    }
-    bool car1NoDeviation = red1.isEmpty() && car1IsFull;
-    bool car2NoDeviation = red2.isEmpty() && car2IsFull;
+    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value(),
+                                         isAssemblyComplete(m_car1Data));
+    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value(),
+                                         isAssemblyComplete(m_car2Data));
+    const bool car1Ready = isAssemblyComplete(m_car1Data);
+    const bool car2Ready = isAssemblyComplete(m_car2Data);
+    bool car1NoDeviation = red1.isEmpty() && car1Ready;
+    bool car2NoDeviation = red2.isEmpty() && car2Ready;
     bool shouldStartTimer = false;
     if (car1NoDeviation && m_tcpClient->isConnected()) {
         if (!m_firstTrayOkSent) {
@@ -1491,12 +1508,10 @@ void MainWindow::onDetectionOkTimerFired()
     double w1[8];
     for (int i = 0; i < 8; ++i)
         w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value());
-    bool car2IsFull = true;
-    for (int i = 0; i < 8; ++i) {
-        if (w2[i] <= EmptySlotThreshold) { car2IsFull = false; break; }
-    }
-    bool car2NoDeviation = red2.isEmpty() && car2IsFull;
+    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value(),
+                                         isAssemblyComplete(m_car2Data));
+    const bool car2Ready = isAssemblyComplete(m_car2Data);
+    bool car2NoDeviation = red2.isEmpty() && car2Ready;
 
     if (car2NoDeviation) {
         // 两托都填满且无超差：发送两托数据，保存并清空
@@ -1971,23 +1986,24 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
                                && table->columnCount() >= 9 && table->rowCount() >= 3);
     if (compactTray1 || compactTray2) {
         const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
+        const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
         double w[8];
         for (int i = 0; i < 8; ++i)
             w[i] = (i < weights.size()) ? weights[i] : 0.0;
         QSet<int> redSlots;
         if (carIndex == 1) {
-            redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+            redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
         } else {
             double w1[8];
             for (int i = 0; i < 8; ++i)
                 w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-            redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
+            redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
         }
         for (int i = 0; i < 8; ++i) {
             const int col = trayVisualColForSlotIndex(i);
             QTableWidgetItem *wItem = table->item(2, col);
             const bool hasData = wItem && !wItem->text().trimmed().isEmpty();
-            const QString state = hasData ? slotDeviationState(carIndex, i, w, redSlots) : QString();
+            const QString state = hasData ? slotDeviationState(i, w, redSlots, assemblyComplete) : QString();
             for (int r = 0; r < 3; ++r) {
                 QTableWidgetItem *cell = table->item(r, col);
                 if (!cell)
@@ -2002,17 +2018,18 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
 
     if (row < 0 || row >= table->rowCount()) return;
     const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
+    const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
     double w[8];
     for (int i = 0; i < 8; ++i)
         w[i] = (i < weights.size()) ? weights[i] : 0.0;
     QSet<int> redSlots;
     if (carIndex == 1) {
-        redSlots = computeRedSlotsCar1(w, deviationThresholdG);
+        redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
     } else {
         double w1[8];
         for (int i = 0; i < 8; ++i)
             w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG);
+        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
     }
     for (int i = 0; i < 8; ++i) {
         QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
