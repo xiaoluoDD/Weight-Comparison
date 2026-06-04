@@ -156,7 +156,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="label_deviationThreshold">
              <property name="text">
-              <string>超过阈值(g):</string>
+              <string>偏差阈值(g):</string>
              </property>
             </widget>
            </item>
@@ -183,7 +183,7 @@
                 <double>60.0</double>
                </property>
                <property name="toolTip">
-                <string>任意两个物品重量差超过此值时标红</string>
+                <string>左车：收齐8件后按最优区间判剔除。右车：与左车任意槽位比较差≥阈值优先标红；收齐8件后在未标红槽位内再做内部最优区间对比。</string>
                </property>
               </widget>
              </item>

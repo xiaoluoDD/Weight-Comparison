@@ -228,6 +228,8 @@ static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weigh
     resizeCompactTrayBarcodeRow(t);
 }
 
+static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double thresholdG, const QString &carLabel,
+                                              const QSet<int> &excludeSlots = QSet<int>());
 static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG);
 
 static bool plcSlotHasPayload(const PlcProtocol::FirstCarData &car, int i)
@@ -840,98 +842,163 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
         slotLabels[i]->setText(slotText);
         slotLabels[i]->setToolTip(bc.trimmed().isEmpty() ? QString() : bc.trimmed());
     }
-    refreshAllVisualizationDeviation();  // 每次物品移动后判断任意2个是否大于60g
+    refreshAllVisualizationDeviation();  // 左车收齐8件后按区间算法判偏差
     if (newFlashSlot >= 0)
         startNewSlotHighlightFlash(carIndex, newFlashSlot);
 }
 
-// 协议用 float 传输，转 g 后仍有精度误差，60g 边界需容差
+// 协议用 float 传输，转 g 后仍有精度误差，阈值边界需容差
 static const double DeviationEpsilon = 0.001;  // 0.001g 容差
 
-// 第一托偏差逻辑：从最大重量依次比较每一个，有>=阈值则变红；空槽位不参与；直到某重量无超差则停止
-static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
+static bool carAllSlotsFilled(const double w[8])
+{
+    for (int i = 0; i < 8; ++i) {
+        if (w[i] <= EmptySlotThreshold)
+            return false;
+    }
+    return true;
+}
+
+/**
+ * 左/右车共用：在排序序列上找极差<阈值且重量和最大的连续区间作为保留，区间外标红。
+ * excludeSlots 非空时（右车内部对比）：已标红槽位不参与排序与区间计算。
+ */
+static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double thresholdG, const QString &carLabel,
+                                              const QSet<int> &excludeSlots)
 {
     QSet<int> redSlots;
-    QVector<int> indices(8);
-    for (int i = 0; i < 8; ++i) indices[i] = i;
-    std::sort(indices.begin(), indices.end(), [&w](int a, int b) { return w[a] > w[b]; });
+    if (excludeSlots.isEmpty() && !carAllSlotsFilled(w))
+        return redSlots;
 
-    for (int k = 0; k < 8; ++k) {
-        int i = indices[k];
-        if (w[i] <= EmptySlotThreshold) continue;  // 空槽位不参与比较
-        bool hasDeviation = false;
-        for (int j = 0; j < 8; ++j) {
-            if (i == j) continue;
-            if (w[j] <= EmptySlotThreshold) continue;  // 空槽位不参与比较
-            if (qAbs(w[i] - w[j]) >= thresholdG - DeviationEpsilon) {
-                redSlots.insert(i);
-                redSlots.insert(j);
-                hasDeviation = true;
-            }
+    struct WeightEntry {
+        double weight;
+        int slotIndex;
+    };
+    QVector<WeightEntry> sortData;
+    sortData.reserve(8);
+    for (int i = 0; i < 8; ++i) {
+        if (excludeSlots.contains(i))
+            continue;
+        if (w[i] <= EmptySlotThreshold)
+            continue;
+        sortData.append({ w[i], i });
+    }
+
+    if (sortData.isEmpty())
+        return redSlots;
+    if (excludeSlots.isEmpty() && sortData.size() < 8)
+        return redSlots;
+
+    std::sort(sortData.begin(), sortData.end(), [](const WeightEntry &a, const WeightEntry &b) {
+        if (qAbs(a.weight - b.weight) > DeviationEpsilon)
+            return a.weight < b.weight;
+        return a.slotIndex < b.slotIndex;
+    });
+
+    const int n = sortData.size();
+    double total = 0;
+    for (int i = 0; i < n; ++i)
+        total += sortData[i].weight;
+
+    double maxSum = 0;
+    int bestL = 0;
+    int bestR = 0;
+    for (int i = 0; i < n; ++i) {
+        int farthestJ = i;
+        for (int j = i; j < n; ++j) {
+            const double diff = sortData[j].weight - sortData[i].weight;
+            if (diff + DeviationEpsilon >= thresholdG)
+                break;
+            farthestJ = j;
         }
-        if (!hasDeviation) break;  // 直到没有超过阈值的，顺延停止
+        double curSum = 0;
+        for (int j = i; j <= farthestJ; ++j)
+            curSum += sortData[j].weight;
+        if (curSum > maxSum + DeviationEpsilon) {
+            maxSum = curSum;
+            bestL = i;
+            bestR = farthestJ;
+        }
+    }
+
+    QSet<int> keepSlots;
+    for (int k = bestL; k <= bestR; ++k)
+        keepSlots.insert(sortData[k].slotIndex);
+    for (int i = 0; i < n; ++i) {
+        if (!keepSlots.contains(sortData[i].slotIndex))
+            redSlots.insert(sortData[i].slotIndex);
+    }
+
+    const double removedWeight = total - maxSum;
+    QStringList keepSlotLabels;
+    for (int k = bestL; k <= bestR; ++k)
+        keepSlotLabels.append(QString::number(sortData[k].slotIndex + 1));
+    if (excludeSlots.isEmpty()) {
+        Logger::info(QStringLiteral("%1 8件对比: 保留%2件(槽%3) 剔除%4件 剔除总重%5g 阈值%6g")
+                         .arg(carLabel)
+                         .arg(bestR - bestL + 1)
+                         .arg(keepSlotLabels.join(QLatin1Char(',')))
+                         .arg(redSlots.size())
+                         .arg(removedWeight, 0, 'f', 1)
+                         .arg(thresholdG, 0, 'f', 1));
+    } else {
+        Logger::info(QStringLiteral("%1 8件对比: 已排除%2件(与左车对比已标红) 参与%3件 保留%4件(槽%5) 剔除%6件 剔除总重%7g 阈值%8g")
+                         .arg(carLabel)
+                         .arg(excludeSlots.size())
+                         .arg(n)
+                         .arg(bestR - bestL + 1)
+                         .arg(keepSlotLabels.join(QLatin1Char(',')))
+                         .arg(redSlots.size())
+                         .arg(removedWeight, 0, 'f', 1)
+                         .arg(thresholdG, 0, 'f', 1));
     }
     return redSlots;
 }
 
-/**
- * 第二托偏差逻辑（第一托为固定标准）：
- * 1. 每个物品与第一托比较，超差则标红
- * 2. 黑色物品内部比较，超差的进入第三步
- * 3. 若仅2个超差：任一个红一个黑；若3个及以上：取平均，小于平均的标红，大于等于平均的保持黑
- */
+static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG)
+{
+    return computeRedSlotsOptimalWindow(w, thresholdG, QStringLiteral("左车"));
+}
+
 static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG)
 {
     QSet<int> redSlots;
 
-    // 第一步：与第一托比较，超差则标红
+    // 第一步：与左车任意槽位对比，任一对差≥阈值立即标红（优先判定）
     for (int i = 0; i < 8; ++i) {
-        if (w2[i] <= EmptySlotThreshold) continue;
+        if (w2[i] <= EmptySlotThreshold)
+            continue;
         for (int j = 0; j < 8; ++j) {
-            if (w1[j] <= EmptySlotThreshold) continue;
-            if (qAbs(w2[i] - w1[j]) >= thresholdG - DeviationEpsilon) {
+            if (w1[j] <= EmptySlotThreshold)
+                continue;
+            if (qAbs(w2[i] - w1[j]) + DeviationEpsilon >= thresholdG) {
                 redSlots.insert(i);
                 break;
             }
         }
     }
 
-    // 第二步：黑色物品内部比较，找出超差的集合（不含已红的）
-    QSet<int> internalDeviationSet;
-    for (int i = 0; i < 8; ++i) {
-        if (w2[i] <= EmptySlotThreshold || redSlots.contains(i)) continue;
-        for (int j = i + 1; j < 8; ++j) {
-            if (w2[j] <= EmptySlotThreshold || redSlots.contains(j)) continue;
-            if (qAbs(w2[i] - w2[j]) >= thresholdG - DeviationEpsilon) {
-                internalDeviationSet.insert(i);
-                internalDeviationSet.insert(j);
-            }
-        }
-    }
-
-    // 第三步：对内部超差集合处理
-    if (internalDeviationSet.size() == 2) {
-        // 仅2个：任一个红一个黑，取索引小的标红
-        QList<int> list = internalDeviationSet.values();
-        redSlots.insert(list[0]);
-    } else if (internalDeviationSet.size() >= 3) {
-        // 3个及以上：取重量平均，按平均分为2部分（小于平均 / 大于等于平均），数量少的那部分标红
-        double sum = 0;
-        for (int idx : internalDeviationSet)
-            sum += w2[idx];
-        double avg = sum / internalDeviationSet.size();
-        QVector<int> belowAvg, aboveAvg;
-        for (int idx : internalDeviationSet) {
-            if (w2[idx] < avg - DeviationEpsilon)
-                belowAvg.append(idx);
-            else
-                aboveAvg.append(idx);
-        }
-        const QVector<int> &toRed = (belowAvg.size() <= aboveAvg.size()) ? belowAvg : aboveAvg;
-        for (int idx : toRed)
+    // 第二步：右车收齐 8 件后，在剩余未标红槽位内做最优区间对比
+    if (carAllSlotsFilled(w2)) {
+        const QSet<int> internalRed = computeRedSlotsOptimalWindow(
+            w2, thresholdG, QStringLiteral("右车内部"), redSlots);
+        for (int idx : internalRed)
             redSlots.insert(idx);
     }
+
     return redSlots;
+}
+
+static QString slotDeviationState(int carIndex, int slotIndex, const double w[8], const QSet<int> &redSlots)
+{
+    if (slotIndex < 0 || slotIndex >= 8 || w[slotIndex] <= EmptySlotThreshold)
+        return QString();
+    if (redSlots.contains(slotIndex))
+        return QStringLiteral("alarm");
+    // 左车：收齐 8 件后才标绿；右车：收齐 8 件且通过左车对比+内部对比后才标绿
+    if (!carAllSlotsFilled(w))
+        return QString();
+    return QStringLiteral("ok");
 }
 
 void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights,
@@ -966,8 +1033,7 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
         if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(flashHere);
-            vsl->setDeviationState(redSlots.contains(i) ? QStringLiteral("alarm")
-                                                       : QStringLiteral("ok"));
+            vsl->setDeviationState(slotDeviationState(carIndex, i, w, redSlots));
         }
     }
 }
@@ -1921,8 +1987,7 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
             const int col = trayVisualColForSlotIndex(i);
             QTableWidgetItem *wItem = table->item(2, col);
             const bool hasData = wItem && !wItem->text().trimmed().isEmpty();
-            const QString state = redSlots.contains(i) ? QStringLiteral("alarm")
-                                   : (hasData ? QStringLiteral("ok") : QString());
+            const QString state = hasData ? slotDeviationState(carIndex, i, w, redSlots) : QString();
             for (int r = 0; r < 3; ++r) {
                 QTableWidgetItem *cell = table->item(r, col);
                 if (!cell)
