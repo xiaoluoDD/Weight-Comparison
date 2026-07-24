@@ -183,7 +183,7 @@
                 <double>60.0</double>
                </property>
                <property name="toolTip">
-                <string>左/右车：PLC装件完成(assemblyDone=2)后才开始对比；仅对有重量的槽位参与比较(可为6件)。右车：与左车任意槽位比较差≥阈值优先标红，再在未标红槽位内做内部最优区间对比。</string>
+                <string>已停用重量对比。槽位颜色由整帧末尾16字节状态决定：前8字节左车、后8字节右车；0=绿色正常，1=红色异常。</string>
                </property>
               </widget>
              </item>

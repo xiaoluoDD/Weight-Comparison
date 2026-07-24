@@ -228,10 +228,10 @@ static void fillTrayCompactDataCells(QTableWidget *t, const QList<double> &weigh
     resizeCompactTrayBarcodeRow(t);
 }
 
-static QSet<int> computeRedSlotsOptimalWindow(const double w[8], double thresholdG, const QString &carLabel,
-                                              const QSet<int> &excludeSlots, bool assemblyComplete);
-static QSet<int> computeRedSlotsCar1(const double w[8], double thresholdG, bool assemblyComplete);
-static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], double thresholdG, bool car2AssemblyComplete);
+// 旧对比算法前向声明（已停用）
+// static QSet<int> computeRedSlotsOptimalWindow(...);
+// static QSet<int> computeRedSlotsCar1(...);
+// static QSet<int> computeRedSlotsCar2(...);
 
 static bool plcSlotHasPayload(const PlcProtocol::FirstCarData &car, int i)
 {
@@ -342,6 +342,11 @@ void MainWindow::initializeUI()
 {
     setWindowTitle(QStringLiteral("称重对比系统"));
     setMinimumSize(1100, 720);
+
+    // 隐藏历史记录标签（收到即显示，不再使用历史页）
+    const int historyIdx = ui->tabWidget->indexOf(ui->historyTab);
+    if (historyIdx >= 0)
+        ui->tabWidget->setTabVisible(historyIdx, false);
 
     // 系统设置区域：TCP连接和偏差参数不拉伸，保持正常大小
     ui->verticalLayout_settings->setStretchFactor(ui->connectionGroup, 0);
@@ -661,6 +666,7 @@ void MainWindow::updateConnectionStatus(bool connected)
     ui->connectionStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
 }
 
+#if 0  // 旧路由/对比门控（已停用）
 static bool isCarDataEmpty(const PlcProtocol::FirstCarData &car)
 {
     if (car.assemblyDone >= PlcProtocol::AssemblyInProgress)
@@ -676,12 +682,14 @@ static bool isAssemblyComplete(const PlcProtocol::FirstCarData &car)
 {
     return car.assemblyDone == PlcProtocol::AssemblyDoneComplete;
 }
+#endif
 
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
-    // PLC 每次整帧 396 字节，无数据段为 0；长度非 396 整数倍则舍弃，避免错位解析
+    // PLC 每次整帧 412 字节；长度非整帧整数倍则舍弃，避免错位解析
     if (data.size() % PlcProtocol::FullPacketSize != 0) {
-        Logger::warning(QString("收到长度%1字节，非396整数倍，已舍弃").arg(data.size()));
+        Logger::warning(QString("收到长度%1字节，非%2整数倍，已舍弃")
+                            .arg(data.size()).arg(PlcProtocol::FullPacketSize));
         return;
     }
     m_receiveBuffer.append(data);
@@ -703,89 +711,28 @@ void MainWindow::parseReceivedData(const QByteArray &data)
             continue;
         }
 
-        // 补充生产：识别 productionMode==2，读取对应托的前N个工件并合并
+        // 不再对比、不应答：每次收到整帧先清空再按包内容重写左右车显示
+        clearCarDataAndVisualization(1);
+        clearCarDataAndVisualization(2);
+
+        updateCarVisualization(1, twoCar.car1);
+        appendToCurrentTable(firstCarDataToWeightData(twoCar.car1), 1);
+
+        updateCarVisualization(2, twoCar.car2);
+        appendToCurrentTable(firstCarDataToWeightData(twoCar.car2), 2);
+
+        Logger::info(QStringLiteral("已刷新左右车显示（整帧覆盖，无对比/无应答）"));
+
+        /* ===== 旧逻辑：按托路由、补充生产合并、偏差对比后应答（已停用）=====
         bool car1Supplement = (twoCar.car1.productionMode == PlcProtocol::SupplementProduction);
         bool car2Supplement = (twoCar.car2.productionMode == PlcProtocol::SupplementProduction);
         if (car1Supplement || car2Supplement) {
-            int trayIndex = car1Supplement ? 1 : 2;
-            const PlcProtocol::FirstCarData &car = car1Supplement ? twoCar.car1 : twoCar.car2;
-            int count = m_lastSupplementQuantity;
-            if (count <= 0) count = 8;  // 未记录时取前8个
-            mergeSupplementIntoCar(trayIndex, car, count);
-            Logger::info(QString("解析到补充生产数据: %1 前%2个工件").arg(carDisplayName(trayIndex)).arg(count));
-            continue;
+            ...
         }
-
-        bool car1Empty = isCarDataEmpty(twoCar.car1);
-        bool car2Empty = isCarDataEmpty(twoCar.car2);
-        bool car1Valid = !car1Empty
-            && (twoCar.car1.productionMode == PlcProtocol::NormalProduction || twoCar.car1.productionMode == 0);
-        bool car2Valid = !car2Empty
-            && (twoCar.car2.productionMode == PlcProtocol::NormalProduction || twoCar.car2.productionMode == 0);
-
-        auto applyCar2Update = [&]() {
-            updateCarVisualization(2, twoCar.car2);
-            WeightData w2 = firstCarDataToWeightData(twoCar.car2);
-            appendToCurrentTable(w2, 2);
-            Logger::info("解析到右车数据并已写入当前表格");
-            if (m_displayMaxWeight >= 0 || m_displayMinWeight >= 0) {
-                double w1[8], w2arr[8];
-                for (int i = 0; i < 8; ++i) {
-                    w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-                    w2arr[i] = (i < twoCar.car2.weights.size()) ? twoCar.car2.weights[i] : 0.0;
-                }
-                QSet<int> red2 = computeRedSlotsCar2(w1, w2arr, ui->deviationThresholdSpinBox->value(),
-                                                     isAssemblyComplete(twoCar.car2));
-                bool updated = false;
-                for (int i = 0; i < 8; ++i) {
-                    if (red2.contains(i) || w2arr[i] <= EmptySlotThreshold)
-                        continue;
-                    double w = w2arr[i];
-                    if (m_displayMaxWeight >= 0 && w > m_displayMaxWeight) {
-                        m_displayMaxWeight = w;
-                        updated = true;
-                    }
-                    if (m_displayMinWeight >= 0 && w < m_displayMinWeight) {
-                        m_displayMinWeight = w;
-                        updated = true;
-                    }
-                }
-                if (updated)
-                    updateWeightRangeDisplay();
-            }
-        };
-
-        if (car1Valid && car2Empty) {
-            // 仅左车有数据
-            updateCarVisualization(1, twoCar.car1);
-            WeightData w1 = firstCarDataToWeightData(twoCar.car1);
-            appendToCurrentTable(w1, 1);
-            Logger::info("解析到左车数据并已写入当前表格");
-        } else if (car2Valid && car1Empty) {
-            // 仅右车有数据
-            applyCar2Update();
-        } else if (car1Valid && car2Valid) {
-            // 双车同包：本地左车尚无数据时写左车，否则写右车（避免模拟器第二车默认值误触发右车）
-            if (isCarDataEmpty(m_car1Data)) {
-                updateCarVisualization(1, twoCar.car1);
-                WeightData w1 = firstCarDataToWeightData(twoCar.car1);
-                appendToCurrentTable(w1, 1);
-                Logger::info("解析到左车数据并已写入当前表格");
-            } else {
-                applyCar2Update();
-            }
-        } else {
-            // 不满足 car1Valid&&car2Empty 也不满足 car2Valid：记录忽略原因便于排查
-            // 调试：打印实际解析用的前6字节，排查粘包错位
-            Logger::info(QString("指令已解析但未处理: 车1 assemblyDone=%1 productionMode=%2, 车2 assemblyDone=%3 productionMode=%4, car2Empty=%5")
-                .arg(twoCar.car1.assemblyDone).arg(twoCar.car1.productionMode)
-                .arg(twoCar.car2.assemblyDone).arg(twoCar.car2.productionMode)
-                .arg(car2Empty ? "是" : "否"));
-            Logger::info(QString("  解析用包前6字节(车1头): %1 %2 %3 %4 %5 %6")
-                .arg(quint8(packet[0]), 2, 16, QChar('0')).arg(quint8(packet[1]), 2, 16, QChar('0'))
-                .arg(quint8(packet[2]), 2, 16, QChar('0')).arg(quint8(packet[3]), 2, 16, QChar('0'))
-                .arg(quint8(packet[4]), 2, 16, QChar('0')).arg(quint8(packet[5]), 2, 16, QChar('0')));
-        }
+        if (car1Valid && car2Empty) { update 左车 }
+        else if (car2Valid && car1Empty) { update 右车 }
+        else if (car1Valid && car2Valid) { ... }
+        ===== */
     }
 }
 
@@ -868,11 +815,14 @@ void MainWindow::updateCarVisualization(int carIndex, const PlcProtocol::FirstCa
         slotLabels[i]->setText(slotText);
         slotLabels[i]->setToolTip(bc.trimmed().isEmpty() ? QString() : bc.trimmed());
     }
-    refreshAllVisualizationDeviation();  // 装件完成(assemblyDone=2)后按区间算法判偏差
+    // 按协议槽位状态着色（0绿/1红），不再做重量对比
+    refreshAllVisualizationDeviation();
     if (newFlashSlot >= 0)
         startNewSlotHighlightFlash(carIndex, newFlashSlot);
 }
 
+// ===== 旧重量对比算法（已停用，改由 PLC 槽位状态字节 0/1 着色）=====
+#if 0
 // 协议用 float 传输，转 g 后仍有精度误差，阈值边界需容差
 static const double DeviationEpsilon = 0.001;  // 0.001g 容差
 
@@ -982,7 +932,6 @@ static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], dou
     if (!car2AssemblyComplete)
         return redSlots;
 
-    // 第一步：与左车任意槽位对比，任一对差≥阈值立即标红（优先判定）
     for (int i = 0; i < 8; ++i) {
         if (w2[i] <= EmptySlotThreshold)
             continue;
@@ -996,7 +945,6 @@ static QSet<int> computeRedSlotsCar2(const double w1[8], const double w2[8], dou
         }
     }
 
-    // 第二步：装件完成后，在剩余未标红槽位内做最优区间对比
     const QSet<int> internalRed = computeRedSlotsOptimalWindow(
         w2, thresholdG, QStringLiteral("右车内部"), redSlots, true);
     for (int idx : internalRed)
@@ -1016,6 +964,18 @@ static QString slotDeviationState(int slotIndex, const double w[8], const QSet<i
         return QString();
     return QStringLiteral("ok");
 }
+#endif // 旧重量对比算法
+
+/** 按 PLC 槽位状态字节着色：0=绿(ok)，1=红(alarm)；空槽无色 */
+static QString slotStatusState(int slotIndex, const double w[8], const QList<int> &slotStatuses)
+{
+    if (slotIndex < 0 || slotIndex >= 8 || w[slotIndex] <= EmptySlotThreshold)
+        return QString();
+    const int st = (slotIndex < slotStatuses.size()) ? slotStatuses[slotIndex] : PlcProtocol::SlotStatusNormal;
+    if (st == PlcProtocol::SlotStatusAlarm)
+        return QStringLiteral("alarm");
+    return QStringLiteral("ok");
+}
 
 void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights,
                                          int flashSlotIndex, bool flashBackgroundOn)
@@ -1028,30 +988,18 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         slotLabels[0] = ui->slot2_1; slotLabels[1] = ui->slot2_2; slotLabels[2] = ui->slot2_3; slotLabels[3] = ui->slot2_4;
         slotLabels[4] = ui->slot2_5; slotLabels[5] = ui->slot2_6; slotLabels[6] = ui->slot2_7; slotLabels[7] = ui->slot2_8;
     }
-    const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
 
     double w[8];
     for (int i = 0; i < 8; ++i)
         w[i] = (i < weights.size()) ? weights[i] : 0.0;
 
-    const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
+    const QList<int> &statuses = (carIndex == 1) ? m_car1Data.slotStatuses : m_car2Data.slotStatuses;
 
-    QSet<int> redSlots;
-    if (carIndex == 1) {
-        redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
-    } else {
-        double w1[8];
-        for (int i = 0; i < 8; ++i)
-            w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
-    }
-
-    // 偏差色与 PLC 新工件边框闪烁（由 VisualizationSlotLabel 自绘）
     for (int i = 0; i < 8; ++i) {
         const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
         if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(flashHere);
-            vsl->setDeviationState(slotDeviationState(i, w, redSlots, assemblyComplete));
+            vsl->setDeviationState(slotStatusState(i, w, statuses));
         }
     }
 }
@@ -1107,34 +1055,14 @@ void MainWindow::refreshAllVisualizationDeviation()
                             m_newSlotFlashSlot2,
                             m_newSlotFlashHighlight && m_newSlotFlashSlot2 >= 0);
 
-    // 第一托填满且无超差时：未发过第一托OK则启动定时器；已发过则等第二托也填满无超差才启动
-    double w1[8], w2[8];
-    for (int i = 0; i < 8; ++i) {
-        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-        w2[i] = (i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0;
-    }
-    QSet<int> red1 = computeRedSlotsCar1(w1, ui->deviationThresholdSpinBox->value(),
-                                         isAssemblyComplete(m_car1Data));
-    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value(),
-                                         isAssemblyComplete(m_car2Data));
-    const bool car1Ready = isAssemblyComplete(m_car1Data);
-    const bool car2Ready = isAssemblyComplete(m_car2Data);
-    bool car1NoDeviation = red1.isEmpty() && car1Ready;
-    bool car2NoDeviation = red2.isEmpty() && car2Ready;
-    bool shouldStartTimer = false;
-    if (car1NoDeviation && m_tcpClient->isConnected()) {
-        if (!m_firstTrayOkSent) {
-            shouldStartTimer = true;  // 未发过第一托OK，2秒后发
-        } else if (car2NoDeviation) {
-            shouldStartTimer = true;  // 已发过第一托OK，等第二托也OK，2秒后发全部
-        }
-    }
-    if (shouldStartTimer) {
-        m_detectionOkTimer->start(2000);
-    } else {
+    // PLC 持续发送，不再自动应答检测OK
+    if (m_detectionOkTimer)
         m_detectionOkTimer->stop();
-    }
-    m_lastCar1HadDeviation = !car1NoDeviation;
+    /* ===== 旧逻辑：装件完成后无超差则延迟发检测OK（已停用）=====
+    QSet<int> red1 = computeRedSlotsCar1(...);
+    QSet<int> red2 = computeRedSlotsCar2(...);
+    if (car1NoDeviation && connected) m_detectionOkTimer->start(2000);
+    ===== */
 
     if (ui->extraTable1->columnCount() >= 9 && ui->extraTable1->rowCount() >= 3) {
         QList<double> weights;
@@ -1500,60 +1428,12 @@ WeightData MainWindow::currentTableRowToWeightData(QTableWidget *table, int row)
 
 void MainWindow::onDetectionOkTimerFired()
 {
+    // PLC 持续发送且不需要应答，检测OK发送已停用
+    return;
+    /* ===== 旧逻辑：无超差时向 PLC 发送检测OK并保存清空（已停用）=====
     if (!m_tcpClient->isConnected()) return;
-    // 再次检查第二托是否也填满且无超差
-    double w2[8];
-    for (int i = 0; i < 8; ++i)
-        w2[i] = (i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0;
-    double w1[8];
-    for (int i = 0; i < 8; ++i)
-        w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-    QSet<int> red2 = computeRedSlotsCar2(w1, w2, ui->deviationThresholdSpinBox->value(),
-                                         isAssemblyComplete(m_car2Data));
-    const bool car2Ready = isAssemblyComplete(m_car2Data);
-    bool car2NoDeviation = red2.isEmpty() && car2Ready;
-
-    if (car2NoDeviation) {
-        // 两托都填满且无超差：发送两托数据，保存并清空
-        QList<double> w1List, w2List;
-        QList<QString> b1List, b2List;
-        for (int i = 0; i < 8; ++i) {
-            w1List.append(w1[i]);
-            b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
-            w2List.append(w2[i]);
-            b2List.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
-        }
-        sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1List, b1List, m_car1Data.vehicleType, w2List, b2List, m_car2Data.vehicleType));
-        ui->statusbar->showMessage(QStringLiteral("右车检测OK，已发送信号并清空"), 2000);
-        Logger::info("右车无超差，已发送检测OK指令（含左右车数据）");
-        doCompleteAndClearBothTrays();
-    } else {
-        // 仅第一托填满无超差且尚未发过第一托OK：发送第一托数据（只发一次）
-        if (!m_firstTrayOkSent) {
-            QList<double> w1List;
-            QList<QString> b1List;
-            for (int i = 0; i < 8; ++i) {
-                w1List.append(w1[i]);
-                b1List.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
-            }
-            sendDataWithLog(PlcProtocol::buildDetectionOkPacketTray1(w1List, b1List, m_car1Data.vehicleType));
-            m_firstTrayOkSent = true;  // 标记已发，不再重复发送
-            ui->statusbar->showMessage(QStringLiteral("左车检测OK，已发送信号"), 2000);
-            Logger::info("左车无超差，已发送检测OK指令");
-            // 写入第一托最大最小重量到显示
-            double maxW = -1, minW = -1;
-            for (int i = 0; i < 8; ++i) {
-                if (w1[i] > EmptySlotThreshold) {
-                    if (maxW < 0 || w1[i] > maxW) maxW = w1[i];
-                    if (minW < 0 || w1[i] < minW) minW = w1[i];
-                }
-            }
-            m_displayMaxWeight = maxW;
-            m_displayMinWeight = minW;
-            updateWeightRangeDisplay();
-        }
-        // 已发过第一托OK则不做任何事，等待第二托也OK后发送全部
-    }
+    ...
+    ===== */
 }
 
 void MainWindow::onLongPressTimerFired()
@@ -1601,21 +1481,12 @@ void MainWindow::onCompleteCurrent2Clicked()
         refreshAllVisualizationDeviation();
         return;
     }
-    // 发送第二托完成OK指令（携带两托所有物品数据）
-    if (m_tcpClient->isConnected()) {
-        QList<double> w1, w2;
-        QList<QString> b1, b2;
-        for (int i = 0; i < 8; ++i) {
-            w1.append((i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0);
-            b1.append((i < m_car1Data.barcodes.size()) ? m_car1Data.barcodes[i] : QString());
-            w2.append((i < m_car2Data.weights.size()) ? m_car2Data.weights[i] : 0.0);
-            b2.append((i < m_car2Data.barcodes.size()) ? m_car2Data.barcodes[i] : QString());
-        }
-        sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(w1, b1, m_car1Data.vehicleType, w2, b2, m_car2Data.vehicleType));
-        Logger::info("右车完成，已发送检测OK指令（含左右车数据）");
-    }
+    // 不再向 PLC 应答、不再写历史库，仅清空当前显示
+    /* if (m_tcpClient->isConnected()) {
+        sendDataWithLog(PlcProtocol::buildDetectionOkPacketBoth(...));
+    } */
     doCompleteAndClearBothTrays();
-    ui->statusbar->showMessage(QStringLiteral("右车已完成，已发送OK指令、保存到历史并清空"), 2000);
+    ui->statusbar->showMessage(QStringLiteral("已清空左右车当前显示"), 2000);
 }
 
 void MainWindow::doCompleteAndClearBothTrays()
@@ -1626,14 +1497,13 @@ void MainWindow::doCompleteAndClearBothTrays()
 
     int totalRows = (trayCompactCurrentTableHasPayload(ui->extraTable1) ? 1 : 0)
         + (trayCompactCurrentTableHasPayload(ui->extraTable2) ? 1 : 0);
-    if (trayCompactCurrentTableHasPayload(ui->extraTable1)) {
-        WeightData w = currentTableRowToWeightData(ui->extraTable1, 0);
-        addWeightData(w, 1);
+    // 不再写入历史数据库
+    /* if (trayCompactCurrentTableHasPayload(ui->extraTable1)) {
+        addWeightData(currentTableRowToWeightData(ui->extraTable1, 0), 1);
     }
     if (trayCompactCurrentTableHasPayload(ui->extraTable2)) {
-        WeightData w = currentTableRowToWeightData(ui->extraTable2, 0);
-        addWeightData(w, 2);
-    }
+        addWeightData(currentTableRowToWeightData(ui->extraTable2, 0), 2);
+    } */
     ui->extraTable1->setProperty("_tray1VehicleModel", QVariant());
     ui->extraTable1->setProperty("_tray1Time", QVariant());
     ui->extraTable2->setProperty("_tray2VehicleModel", QVariant());
@@ -1662,7 +1532,7 @@ void MainWindow::doCompleteAndClearBothTrays()
     m_displayMinWeight = -1;
     updateWeightRangeDisplay();
     refreshAllVisualizationDeviation();
-    Logger::info(QString("右车完成: %1 条记录已写入历史，已清空当前表格和可视化").arg(totalRows));
+    Logger::info(QString("已清空当前表格和可视化（未写历史库），原行数合计 %1").arg(totalRows));
 }
 
 void MainWindow::completeCurrentTable(QTableWidget *table, int tableIndex)
@@ -1862,9 +1732,11 @@ void MainWindow::clearCarDataAndVisualization(int carIndex)
     PlcProtocol::FirstCarData &car = (carIndex == 1) ? m_car1Data : m_car2Data;
     car.weights.clear();
     car.barcodes.clear();
+    car.slotStatuses.clear();
     for (int i = 0; i < 8; ++i) {
         car.weights.append(0.0);
         car.barcodes.append(QString());
+        car.slotStatuses.append(PlcProtocol::SlotStatusNormal);
     }
 
     QTableWidget *table = (carIndex == 1) ? ui->extraTable1 : ui->extraTable2;
@@ -1984,26 +1856,17 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
                                && table->columnCount() >= 9 && table->rowCount() >= 3);
     const bool compactTray2 = (carIndex == 2 && table == ui->extraTable2
                                && table->columnCount() >= 9 && table->rowCount() >= 3);
+    const QList<int> &statuses = (carIndex == 1) ? m_car1Data.slotStatuses : m_car2Data.slotStatuses;
+    double w[8];
+    for (int i = 0; i < 8; ++i)
+        w[i] = (i < weights.size()) ? weights[i] : 0.0;
+
     if (compactTray1 || compactTray2) {
-        const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
-        const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
-        double w[8];
-        for (int i = 0; i < 8; ++i)
-            w[i] = (i < weights.size()) ? weights[i] : 0.0;
-        QSet<int> redSlots;
-        if (carIndex == 1) {
-            redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
-        } else {
-            double w1[8];
-            for (int i = 0; i < 8; ++i)
-                w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-            redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
-        }
         for (int i = 0; i < 8; ++i) {
             const int col = trayVisualColForSlotIndex(i);
             QTableWidgetItem *wItem = table->item(2, col);
             const bool hasData = wItem && !wItem->text().trimmed().isEmpty();
-            const QString state = hasData ? slotDeviationState(i, w, redSlots, assemblyComplete) : QString();
+            const QString state = hasData ? slotStatusState(i, w, statuses) : QString();
             for (int r = 0; r < 3; ++r) {
                 QTableWidgetItem *cell = table->item(r, col);
                 if (!cell)
@@ -2017,27 +1880,18 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
     }
 
     if (row < 0 || row >= table->rowCount()) return;
-    const double deviationThresholdG = ui->deviationThresholdSpinBox->value();
-    const bool assemblyComplete = isAssemblyComplete(carIndex == 1 ? m_car1Data : m_car2Data);
-    double w[8];
-    for (int i = 0; i < 8; ++i)
-        w[i] = (i < weights.size()) ? weights[i] : 0.0;
-    QSet<int> redSlots;
-    if (carIndex == 1) {
-        redSlots = computeRedSlotsCar1(w, deviationThresholdG, assemblyComplete);
-    } else {
-        double w1[8];
-        for (int i = 0; i < 8; ++i)
-            w1[i] = (i < m_car1Data.weights.size()) ? m_car1Data.weights[i] : 0.0;
-        redSlots = computeRedSlotsCar2(w1, w, deviationThresholdG, assemblyComplete);
-    }
+    const QBrush alarmBrush(QColor(QStringLiteral("#ff5c5c")));
+    const QBrush okBrush(QColor(Qt::darkGreen));
     for (int i = 0; i < 8; ++i) {
         QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
         QTableWidgetItem *bItem = table->item(row, 2 + i * 2);
-        const QBrush alarmBrush(QColor(QStringLiteral("#ff5c5c")));
-        if (redSlots.contains(i)) {
+        const QString state = slotStatusState(i, w, statuses);
+        if (state == QStringLiteral("alarm")) {
             if (wItem) wItem->setForeground(alarmBrush);
             if (bItem) bItem->setForeground(alarmBrush);
+        } else if (state == QStringLiteral("ok")) {
+            if (wItem) wItem->setForeground(okBrush);
+            if (bItem) bItem->setForeground(okBrush);
         } else {
             if (wItem) wItem->setData(Qt::ForegroundRole, QVariant());
             if (bItem) bItem->setData(Qt::ForegroundRole, QVariant());
@@ -2047,7 +1901,12 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
 
 void MainWindow::addWeightData(const WeightData &data, int tableIndex)
 {
-    DatabaseManager::instance().insertWeightRecord(data, tableIndex);
+    // 不再保存称重记录到数据库，仅刷新内存历史表显示（若手动完成仍调用）
+    // DatabaseManager::instance().insertWeightRecord(data, tableIndex);
+    Q_UNUSED(data);
+    Q_UNUSED(tableIndex);
+    Logger::info(QStringLiteral("跳过写入历史数据库（收到即显示模式）"));
+    /* 旧逻辑：
     if (tableIndex == 1) {
         m_weightDataList1.append(data);
         updateWeightTable(ui->weightTable1, m_weightDataList1);
@@ -2055,6 +1914,7 @@ void MainWindow::addWeightData(const WeightData &data, int tableIndex)
         m_weightDataList2.append(data);
         updateWeightTable(ui->weightTable2, m_weightDataList2);
     }
+    */
 }
 
 void MainWindow::updateWeightTable(QTableWidget *table, const QList<WeightData> &dataList)

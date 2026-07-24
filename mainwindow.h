@@ -89,7 +89,7 @@ private:
     QMap<QString, QString> m_bindingMap;  // 车型代码 -> 车型名称的映射
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
-    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 396 字节再解析
+    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 412 字节再解析
     PlcProtocol::FirstCarData m_car1Data; // 第一托当前数据（用于双击弹窗）
     PlcProtocol::FirstCarData m_car2Data; // 第二托当前数据（用于双击弹窗）
     QMap<QLabel *, QPair<int, int>> m_slotMap;  // QLabel* -> (carIndex, slotIndex)
@@ -136,7 +136,7 @@ private:
                                  int flashSlotIndex = -1, bool flashBackgroundOn = false);  // 偏差颜色；可选新槽位背景闪烁
     void startNewSlotHighlightFlash(int carIndex, int slotIndex);  // PLC 新数据时提醒当前工件槽位
     void stopNewSlotHighlightFlash(int carIndex);  // 1/2：停止该托闪烁（完成按钮或清空时）
-    void refreshAllVisualizationDeviation();  // 每次物品移动后刷新两托的60g偏差判断
+    void refreshAllVisualizationDeviation();  // 按 PLC 槽位状态刷新红绿显示（不再做重量对比）
     QString formatSlotText(const QString &vehicleModel, double weightKg, const QString &barcode) const;  // 三行纯文本；由 VisualizationSlotLabel 居中绘制、行左对齐
     void setupSlotDoubleClick();  // 为可视化槽位安装双击事件过滤
     void addNgRecord(const QString &vehicleModel, const QString &barcode, double weightG);  // 添加到NG表格并保存(克)
