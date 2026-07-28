@@ -89,7 +89,7 @@ private:
     QMap<QString, QString> m_bindingMap;  // 车型代码 -> 车型名称的映射
     QList<WeightData> m_weightDataList1;  // 表格1的数据
     QList<WeightData> m_weightDataList2;  // 表格2的数据
-    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 412 字节再解析
+    QByteArray m_receiveBuffer;           // TCP 接收缓冲，凑满 432 字节再解析
     PlcProtocol::FirstCarData m_car1Data; // 第一托当前数据（用于双击弹窗）
     PlcProtocol::FirstCarData m_car2Data; // 第二托当前数据（用于双击弹窗）
     QMap<QLabel *, QPair<int, int>> m_slotMap;  // QLabel* -> (carIndex, slotIndex)

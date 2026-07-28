@@ -183,7 +183,7 @@
                 <double>60.0</double>
                </property>
                <property name="toolTip">
-                <string>已停用重量对比。槽位颜色由整帧末尾16字节状态决定：前8字节左车、后8字节右车；0=绿色正常，1=红色异常。</string>
+                <string>已停用重量对比。槽位颜色由整帧末尾16个状态字决定（先2空字再16状态字，共18字=36字节）：前8字左车、后8字右车；0=绿色正常，1=红色异常。</string>
                </property>
               </widget>
              </item>

@@ -686,7 +686,7 @@ static bool isAssemblyComplete(const PlcProtocol::FirstCarData &car)
 
 void MainWindow::parseReceivedData(const QByteArray &data)
 {
-    // PLC 每次整帧 412 字节；长度非整帧整数倍则舍弃，避免错位解析
+    // PLC 每次整帧 432 字节；长度非整帧整数倍则舍弃，避免错位解析
     if (data.size() % PlcProtocol::FullPacketSize != 0) {
         Logger::warning(QString("收到长度%1字节，非%2整数倍，已舍弃")
                             .arg(data.size()).arg(PlcProtocol::FullPacketSize));
