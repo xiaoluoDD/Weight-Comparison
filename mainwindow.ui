@@ -523,8 +523,204 @@
           </layout>
          </widget>
         </item>
-        <item row="0" column="1" rowspan="2">
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="leftBottomGroup">
+          <property name="title">
+           <string>右车可视化</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_leftBottom">
+           <item row="0" column="0">
+            <widget class="QLabel" name="slot2_leftNote1">
+             <property name="text">
+              <string>右5</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="slot2_leftNote2">
+             <property name="text">
+              <string>右6</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="slot2_leftNote3">
+             <property name="text">
+              <string>右7</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="slot2_leftNote4">
+             <property name="text">
+              <string>右8</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="VisualizationSlotLabel" name="slot2_5">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="VisualizationSlotLabel" name="slot2_6">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="VisualizationSlotLabel" name="slot2_7">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="VisualizationSlotLabel" name="slot2_8">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="VisualizationSlotLabel" name="slot2_1">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="VisualizationSlotLabel" name="slot2_2">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="VisualizationSlotLabel" name="slot2_3">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="VisualizationSlotLabel" name="slot2_4">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Box</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QLabel" name="slot2_rightNote1">
+             <property name="text">
+              <string>右1</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QLabel" name="slot2_rightNote2">
+             <property name="text">
+              <string>右2</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QLabel" name="slot2_rightNote3">
+             <property name="text">
+              <string>右3</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QLabel" name="slot2_rightNote4">
+             <property name="text">
+              <string>右4</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
          <widget class="QWidget" name="rightWidget">
+          <property name="visible">
+           <bool>false</bool>
+          </property>
           <layout class="QVBoxLayout" name="verticalLayout_right">
            <item>
             <widget class="QGroupBox" name="ngGroupBox">
@@ -748,199 +944,6 @@
                </widget>
               </item>
              </layout>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QGroupBox" name="leftBottomGroup">
-          <property name="title">
-           <string>右车可视化</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_leftBottom">
-           <item row="0" column="0">
-            <widget class="QLabel" name="slot2_leftNote1">
-             <property name="text">
-              <string>右5</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="slot2_leftNote2">
-             <property name="text">
-              <string>右6</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="slot2_leftNote3">
-             <property name="text">
-              <string>右7</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="slot2_leftNote4">
-             <property name="text">
-              <string>右8</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="VisualizationSlotLabel" name="slot2_5">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="VisualizationSlotLabel" name="slot2_6">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="VisualizationSlotLabel" name="slot2_7">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1">
-            <widget class="VisualizationSlotLabel" name="slot2_8">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="VisualizationSlotLabel" name="slot2_1">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="VisualizationSlotLabel" name="slot2_2">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="VisualizationSlotLabel" name="slot2_3">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="2">
-            <widget class="VisualizationSlotLabel" name="slot2_4">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::Box</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QLabel" name="slot2_rightNote1">
-             <property name="text">
-              <string>右1</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="QLabel" name="slot2_rightNote2">
-             <property name="text">
-              <string>右2</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="3">
-            <widget class="QLabel" name="slot2_rightNote3">
-             <property name="text">
-              <string>右3</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="3">
-            <widget class="QLabel" name="slot2_rightNote4">
-             <property name="text">
-              <string>右4</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
-             </property>
             </widget>
            </item>
           </layout>

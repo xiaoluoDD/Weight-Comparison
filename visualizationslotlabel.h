@@ -15,7 +15,7 @@ public:
     void setFlashHighlight(bool on);
     bool flashHighlight() const { return m_flashHighlight; }
 
-    /** 偏差状态：空/normal、ok、alarm */
+    /** 状态：空、ok(左车绿)、ok_blue(右车蓝)、alarm(红) */
     void setDeviationState(const QString &state);
     QString deviationState() const { return m_deviationState; }
 

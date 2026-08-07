@@ -137,6 +137,9 @@ static void updateCompactTrayCellAppearance(QTableWidget *table, QTableWidgetIte
     } else if (state == QStringLiteral("ok")) {
         item->setForeground(QBrush(Qt::darkGreen));
         item->setData(Qt::BackgroundRole, QVariant());
+    } else if (state == QStringLiteral("ok_blue")) {
+        item->setForeground(QBrush(QColor(0, 90, 200)));
+        item->setData(Qt::BackgroundRole, QVariant());
     } else {
         item->setData(Qt::ForegroundRole, QVariant());
         item->setData(Qt::BackgroundRole, QVariant());
@@ -386,17 +389,12 @@ void MainWindow::initializeUI()
     setupTrayCurrentTableSelection(ui->extraTable1, 1);
     setupTrayCurrentTableSelection(ui->extraTable2, 2);
 
-    // 称重数据页：左(可视化)、右(NG+当前表) 等宽
+    // 称重数据页：仅左右车可视化并排，隐藏右侧 NG/当前表区域
+    ui->rightWidget->setVisible(false);
     ui->gridLayout_weightData->setColumnStretch(0, 1);
     ui->gridLayout_weightData->setColumnStretch(1, 1);
-    // 行拉伸：上下两行各为1
     ui->gridLayout_weightData->setRowStretch(0, 1);
-    ui->gridLayout_weightData->setRowStretch(1, 1);
-    // 右侧区域：NG品表格占更多空间，当前表格区域降低高度（基本只有1条数据）
-    ui->verticalLayout_right->setStretchFactor(ui->ngGroupBox, 2);
-    ui->verticalLayout_right->setStretchFactor(ui->extraTable1Group, 1);
-    ui->verticalLayout_right->setStretchFactor(ui->extraTable2Group, 1);
-    // 当前表格最大高度限制，便于显示1-2行
+    ui->gridLayout_weightData->setRowStretch(1, 0);
     applyTableBarcodeWrapSettings(ui->extraTable1);
     applyTableBarcodeWrapSettings(ui->extraTable2);
     ui->extraTable1->setMaximumHeight(260);
@@ -416,11 +414,15 @@ void MainWindow::initializeUI()
             ui->slot1_leftNote1, ui->slot1_leftNote2, ui->slot1_leftNote3, ui->slot1_leftNote4,
             ui->slot1_rightNote1, ui->slot1_rightNote2, ui->slot1_rightNote3, ui->slot1_rightNote4
         };
+        QFont noteFont = tray1Notes.first()->font();
+        noteFont.setPointSize(20);
+        noteFont.setBold(true);
         for (QLabel *lb : tray1Notes) {
             lb->setProperty("trayNote", true);
+            lb->setFont(noteFont);
             lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
-            lb->setMinimumWidth(36);
-            lb->setMaximumWidth(44);
+            lb->setMinimumWidth(56);
+            lb->setMaximumWidth(72);
         }
     }
     ui->gridLayout_leftTop->setRowStretch(0, 1);
@@ -438,11 +440,15 @@ void MainWindow::initializeUI()
             ui->slot2_leftNote1, ui->slot2_leftNote2, ui->slot2_leftNote3, ui->slot2_leftNote4,
             ui->slot2_rightNote1, ui->slot2_rightNote2, ui->slot2_rightNote3, ui->slot2_rightNote4
         };
+        QFont noteFont = tray2Notes.first()->font();
+        noteFont.setPointSize(20);
+        noteFont.setBold(true);
         for (QLabel *lb : tray2Notes) {
             lb->setProperty("trayNote", true);
+            lb->setFont(noteFont);
             lb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
-            lb->setMinimumWidth(36);
-            lb->setMaximumWidth(44);
+            lb->setMinimumWidth(56);
+            lb->setMaximumWidth(72);
         }
     }
     ui->gridLayout_leftBottom->setRowStretch(0, 1);
@@ -450,7 +456,7 @@ void MainWindow::initializeUI()
     ui->gridLayout_leftBottom->setRowStretch(2, 1);
     ui->gridLayout_leftBottom->setRowStretch(3, 1);
 
-    // 可视化槽位：自定义 QLabel 绘制「块居中、三行左对齐」；字号与加粗
+    // 可视化槽位：自定义绘制，文字块垂直/水平居中；超宽条码按字符折行
     QList<QLabel *> slotLabels;
     slotLabels << ui->slot1_1 << ui->slot1_2 << ui->slot1_3 << ui->slot1_4
                << ui->slot1_5 << ui->slot1_6 << ui->slot1_7 << ui->slot1_8
@@ -462,6 +468,7 @@ void MainWindow::initializeUI()
     for (QLabel *lb : slotLabels) {
         lb->setTextFormat(Qt::PlainText);
         lb->setAlignment(Qt::AlignCenter);
+        lb->setWordWrap(true);
         lb->setFont(slotFont);
         lb->setMinimumWidth(108);
         lb->setContentsMargins(4, 4, 4, 4);
@@ -966,15 +973,15 @@ static QString slotDeviationState(int slotIndex, const double w[8], const QSet<i
 }
 #endif // 旧重量对比算法
 
-/** 按 PLC 槽位状态字节着色：0=绿(ok)，1=红(alarm)；空槽无色 */
-static QString slotStatusState(int slotIndex, const double w[8], const QList<int> &slotStatuses)
+/** 按 PLC 槽位状态着色：正常左车绿(ok)/右车蓝(ok_blue)，异常红(alarm)；空槽无色 */
+static QString slotStatusState(int carIndex, int slotIndex, const double w[8], const QList<int> &slotStatuses)
 {
     if (slotIndex < 0 || slotIndex >= 8 || w[slotIndex] <= EmptySlotThreshold)
         return QString();
     const int st = (slotIndex < slotStatuses.size()) ? slotStatuses[slotIndex] : PlcProtocol::SlotStatusNormal;
     if (st == PlcProtocol::SlotStatusAlarm)
         return QStringLiteral("alarm");
-    return QStringLiteral("ok");
+    return (carIndex == 2) ? QStringLiteral("ok_blue") : QStringLiteral("ok");
 }
 
 void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weights,
@@ -999,7 +1006,7 @@ void MainWindow::applySlotDeviationStyle(int carIndex, const QList<double> &weig
         const bool flashHere = (flashSlotIndex == i) && flashBackgroundOn;
         if (auto *vsl = qobject_cast<VisualizationSlotLabel *>(slotLabels[i])) {
             vsl->setFlashHighlight(flashHere);
-            vsl->setDeviationState(slotStatusState(i, w, statuses));
+            vsl->setDeviationState(slotStatusState(carIndex, i, w, statuses));
         }
     }
 }
@@ -1866,7 +1873,7 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
             const int col = trayVisualColForSlotIndex(i);
             QTableWidgetItem *wItem = table->item(2, col);
             const bool hasData = wItem && !wItem->text().trimmed().isEmpty();
-            const QString state = hasData ? slotStatusState(i, w, statuses) : QString();
+            const QString state = hasData ? slotStatusState(carIndex, i, w, statuses) : QString();
             for (int r = 0; r < 3; ++r) {
                 QTableWidgetItem *cell = table->item(r, col);
                 if (!cell)
@@ -1881,15 +1888,15 @@ void MainWindow::applyCurrentTableDeviationStyle(int carIndex, int row, const QL
 
     if (row < 0 || row >= table->rowCount()) return;
     const QBrush alarmBrush(QColor(QStringLiteral("#ff5c5c")));
-    const QBrush okBrush(QColor(Qt::darkGreen));
+    const QBrush okBrush(carIndex == 2 ? QColor(0, 90, 200) : QColor(Qt::darkGreen));
     for (int i = 0; i < 8; ++i) {
         QTableWidgetItem *wItem = table->item(row, 1 + i * 2);
         QTableWidgetItem *bItem = table->item(row, 2 + i * 2);
-        const QString state = slotStatusState(i, w, statuses);
+        const QString state = slotStatusState(carIndex, i, w, statuses);
         if (state == QStringLiteral("alarm")) {
             if (wItem) wItem->setForeground(alarmBrush);
             if (bItem) bItem->setForeground(alarmBrush);
-        } else if (state == QStringLiteral("ok")) {
+        } else if (state == QStringLiteral("ok") || state == QStringLiteral("ok_blue")) {
             if (wItem) wItem->setForeground(okBrush);
             if (bItem) bItem->setForeground(okBrush);
         } else {

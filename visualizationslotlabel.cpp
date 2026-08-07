@@ -1,4 +1,5 @@
 #include "visualizationslotlabel.h"
+#include <QColor>
 #include <QFrame>
 #include <QPaintEvent>
 #include <QStyleOptionFrame>
@@ -33,6 +34,8 @@ QColor VisualizationSlotLabel::textColorForState() const
         return Qt::red;
     if (m_deviationState == QStringLiteral("ok"))
         return Qt::darkGreen;
+    if (m_deviationState == QStringLiteral("ok_blue"))
+        return QColor(0, 90, 200); // 右车正常：蓝色
     return palette().color(QPalette::WindowText);
 }
 
@@ -46,40 +49,40 @@ static void drawFlashBorder(QStylePainter &sp, const QWidget *widget)
     sp.drawRect(r);
 }
 
+/** 按像素强制折行（条码无空格，必须按字符断行）；预留 2px 避免测宽临界导致不换行却被裁切 */
 static QStringList wrapTextToWidth(const QString &text, const QFontMetrics &fm, int maxWidth)
 {
     QStringList lines;
-    if (text.isEmpty() || maxWidth <= 0)
+    if (text.isEmpty())
         return lines;
-
+    const int limit = qMax(1, maxWidth);
     int i = 0;
     while (i < text.size()) {
         int len = 1;
-        while (i + len <= text.size() && fm.horizontalAdvance(text.mid(i, len)) <= maxWidth)
+        while (i + len < text.size()
+               && fm.horizontalAdvance(text.mid(i, len + 1)) <= limit)
             ++len;
-        if (len > 1 && i + len < text.size())
-            --len;
-        if (len < 1)
-            len = 1;
         lines.append(text.mid(i, len));
         i += len;
     }
     return lines;
 }
 
-/** 保持 formatSlotText 的三行结构；仅当整行超宽时才按像素折行（条码与「条码：」同一行） */
+/** 保持 formatSlotText 的三行结构；超宽则按像素折行 */
 static QStringList layoutSlotLines(const QString &doc, int contentWidth, const QFont &font)
 {
     QStringList out;
     const QFontMetrics fm(font);
+    // 比绘制区略窄，避免 left 侧略宽时「判定一行可放、实际仍裁切」
+    const int wrapWidth = qMax(1, contentWidth - 2);
     const QStringList rows = doc.split(QLatin1Char('\n'));
     for (const QString &ln : rows) {
         if (ln.isEmpty())
             continue;
-        if (fm.horizontalAdvance(ln) <= contentWidth)
+        if (fm.horizontalAdvance(ln) <= wrapWidth)
             out.append(ln);
         else
-            out.append(wrapTextToWidth(ln, fm, contentWidth));
+            out += wrapTextToWidth(ln, fm, wrapWidth);
     }
     return out;
 }
@@ -136,8 +139,10 @@ void VisualizationSlotLabel::paintEvent(QPaintEvent *event)
         sp.setFont(drawFont);
         const QFontMetrics fm(drawFont);
 
-        qreal y = r.y();
         const qreal lineH = fm.height();
+        const qreal blockH = lineH * lines.size();
+        // 整块文字在槽位内垂直居中（超高则顶对齐，避免上裁切）；行内左对齐便于读条码
+        qreal y = r.y() + qMax<qreal>(0, (r.height() - blockH) / 2.0);
         for (const QString &ln : lines) {
             sp.drawText(QRectF(r.x(), y, r.width(), lineH),
                         Qt::AlignLeft | Qt::AlignVCenter, ln);
